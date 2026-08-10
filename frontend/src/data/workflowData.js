@@ -33,7 +33,7 @@ export const workflowSubmissions = [
   },
   {
     id: "sub-002", student: "Sneha Kulkarni", roll: "ET202-089", submittedAt: "Today, 9:48 AM",
-    file: "SnehaKulkarni_DSP_A03.pdf", pages: 3, status: "Evaluated", score: "15 / 20", evaluationId: "eval-sneha",
+    file: "SnehaKulkarni_DSP_A03.pdf", pages: 3, status: "Submitted", score: "—", evaluationId: "eval-sneha",
     evaluation: {
       score: 15, totalMarks: 20, grade: "Grade B", confidence: "91%", semanticRelevance: "82%",
       answerText: "Sampling converts a continuous signal into discrete samples at regular intervals. The Nyquist theorem requires the sampling rate to be at least twice the highest frequency component. If sampling is too slow, aliasing distorts the signal. A low-pass filter is applied before sampling to remove high-frequency components.",
@@ -53,7 +53,7 @@ export const workflowSubmissions = [
   },
   {
     id: "sub-003", student: "Aarav Sharma", roll: "ET202-012", submittedAt: "Yesterday, 6:15 PM",
-    file: "AaravSharma_DSP_A03.pdf", pages: 5, status: "Evaluated", score: "19 / 20", evaluationId: "eval-aarav",
+    file: "AaravSharma_DSP_A03.pdf", pages: 5, status: "Processing", score: "—", evaluationId: "eval-aarav",
     evaluation: {
       score: 19, totalMarks: 20, grade: "Grade A+", confidence: "96%", semanticRelevance: "93%",
       answerText: "Sampling is the process of converting a continuous-time signal into a discrete-time signal by taking samples at regular intervals. According to the Nyquist-Shannon sampling theorem, the sampling frequency must be at least twice the maximum frequency present in the signal to avoid aliasing. An anti-aliasing filter is used before the sampler to remove frequency components above the Nyquist frequency.",
@@ -93,7 +93,7 @@ export const workflowSubmissions = [
   },
   {
     id: "sub-005", student: "Rohan Jadhav", roll: "ET202-102", submittedAt: "Yesterday, 1:09 PM",
-    file: "RohanJadhav_DSP_A03.pdf", pages: 4, status: "Evaluated", score: "14 / 20", evaluationId: "eval-rohan",
+    file: "RohanJadhav_DSP_A03.pdf", pages: 4, status: "Pending", score: "—", evaluationId: "eval-rohan",
     evaluation: {
       score: 14, totalMarks: 20, grade: "Grade B", confidence: "88%", semanticRelevance: "76%",
       answerText: "Sampling is taking discrete values from a continuous signal. The sampling frequency should be high enough. If the sampling rate is too low, we get aliasing. A filter is used to remove high frequencies.",
@@ -113,7 +113,7 @@ export const workflowSubmissions = [
   },
   {
     id: "sub-006", student: "Ananya Kulkarni", roll: "ET202-077", submittedAt: "12 Aug, 3:20 PM",
-    file: "AnanyaKulkarni_DSP_A03.pdf", pages: 4, status: "Evaluated", score: "16 / 20", evaluationId: "eval-ananya",
+    file: "AnanyaKulkarni_DSP_A03.pdf", pages: 4, status: "Submitted", score: "—", evaluationId: "eval-ananya",
     evaluation: {
       score: 16, totalMarks: 20, grade: "Grade A", confidence: "92%", semanticRelevance: "85%",
       answerText: "Sampling is the process of converting a continuous signal into a sequence of discrete values at regular time intervals. According to the Nyquist theorem, the sampling frequency should be at least twice the maximum frequency of the signal to avoid aliasing. An anti-aliasing filter is used before sampling to eliminate high-frequency components that could cause distortion.",
@@ -157,6 +157,16 @@ export const workflowSubmissions = [
 export const getSubmissionById = (id) => workflowSubmissions.find((item) => item.id === id) || null;
 export const getSubmissionByEvaluationId = (evaluationId) => workflowSubmissions.find((item) => item.evaluationId === evaluationId) || null;
 
+// Mark a single submission as Evaluated (used after AI evaluation completes)
+export const markAsEvaluated = (submissionId) => {
+  const submission = workflowSubmissions.find((item) => item.id === submissionId);
+  if (submission) {
+    submission.status = "Evaluated";
+    submission.score = submission.evaluation ? `${submission.evaluation.score} / ${submission.evaluation.totalMarks}` : "—";
+  }
+  return submission;
+};
+
 // Build a complete student report object from a submission's evaluation data
 export const getStudentReport = (submission) => {
   if (!submission) return null;
@@ -188,7 +198,7 @@ export const getStudentReport = (submission) => {
 
 // Compute class analytics from all submissions (data-driven, no hardcoded values)
 export const getClassAnalytics = () => {
-  const evaluated = workflowSubmissions.filter((item) => item.evaluation);
+  const evaluated = workflowSubmissions.filter((item) => item.status === "Evaluated");
   if (evaluated.length === 0) return null;
   const scores = evaluated.map((item) => item.evaluation.score);
   const totalMarks = evaluated[0].evaluation.totalMarks;

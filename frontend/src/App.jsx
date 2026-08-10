@@ -8,6 +8,7 @@ import CreateAssignmentPage from "./pages/CreateAssignmentPage";
 import {
   EvaluationPage,
   EvaluationResultPage,
+  SelectSubmissionPage,
   StudentReportPage,
   SubmissionDetailPage,
   SubmissionsPage,
@@ -34,7 +35,7 @@ function App() {
           <Route path="create-assignment" element={<CreateAssignmentPage />} />
           <Route path="submissions" element={<SubmissionsPage />} />
           <Route path="submissions/:submissionId" element={<SubmissionDetailPage />} />
-          <Route path="evaluate" element={<EvaluationPage />} />
+          <Route path="evaluate" element={<SelectSubmissionPage />} />
           <Route path="evaluate/:submissionId" element={<EvaluationPage />} />
           <Route path="evaluations/:evaluationId" element={<EvaluationResultPage />} />
           <Route path="reports/:evaluationId" element={<StudentReportPage />} />

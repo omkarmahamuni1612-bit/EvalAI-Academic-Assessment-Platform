@@ -378,7 +378,7 @@ function TeacherDashboard() {
                       <button
                         type="button"
                         className="table-action-btn"
-                        onClick={() => navigate(sub.status === "Evaluated" ? `/teacher/evaluations/${sub.evaluationId}` : `/teacher/submissions/${sub.id}`)}
+                        onClick={() => navigate(sub.status === "Evaluated" ? `/teacher/evaluations/${sub.evaluationId}` : `/teacher/evaluate/${sub.id}`)}
                       >
                         {sub.status === "Evaluated" ? "View Result" : "Evaluate"}
                       </button>

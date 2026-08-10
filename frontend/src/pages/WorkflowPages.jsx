@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowLeft, Check, CheckCircle2, ChevronRight, Cpu, Download, Eye, FileSpreadsheet, Play, Search, Sparkles, WandSparkles } from "lucide-react";
-import { analyticsTrend, demoAssignment, getClassAnalytics, getStudentReport, getSubmissionByEvaluationId, getSubmissionById, rubricAnalytics, scoreDistribution, workflowSubmissions } from "../data/workflowData";
+import { analyticsTrend, demoAssignment, getClassAnalytics, getStudentReport, getSubmissionByEvaluationId, getSubmissionById, markAsEvaluated, rubricAnalytics, scoreDistribution, workflowSubmissions } from "../data/workflowData";
 import { FilePill, PageHeader, PaperPreview, StatusBadge, Toast } from "../components/WorkflowUI";
 import "./WorkflowPages.css";
 
@@ -36,10 +36,21 @@ export function SubmissionsPage() {
   const navigate = useNavigate(); const [tab, setTab] = useState("All"); const [query, setQuery] = useState(""); const [sort, setSort] = useState("Latest"); const [status, setStatus] = useState("All statuses");
   const filtered = useMemo(() => workflowSubmissions.filter((item) => (tab === "All" || item.status === tab) && (status === "All statuses" || item.status === status) && `${item.student} ${item.roll}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => sort === "Student" ? a.student.localeCompare(b.student) : a.id.localeCompare(b.id)), [tab, query, sort, status]);
   const cards = [["Total Students", "51", "All enrolled students"], ["Submitted", "43", "84% submission rate"], ["Evaluated", "36", "AI and teacher reviewed"], ["Pending", "8", "Awaiting submission or review"]];
+
+  const getAction = (item) => {
+    if (item.status === "Evaluated") {
+      return <button className="text-action" onClick={() => navigate(`/teacher/evaluations/${item.evaluationId}`)}>View Result<ChevronRight size={14}/></button>;
+    }
+    if (item.status === "Processing") {
+      return <button className="text-action" onClick={() => navigate(`/teacher/evaluate/${item.id}`)}>View Evaluation<ChevronRight size={14}/></button>;
+    }
+    return <button className="text-action" onClick={() => navigate(`/teacher/evaluate/${item.id}`)}>Start AI Evaluation<ChevronRight size={14}/></button>;
+  };
+
   return <div className="workflow-page"><PageHeader eyebrow="ASSESSMENT WORKSPACE" title="Student Submissions" subtitle="Review student responses and manage AI-assisted evaluation." actions={<><select className="compact-select" aria-label="Select assignment"><option>{demoAssignment.shortTitle}</option><option>Signals & Systems — Assignment 02</option></select><Link className="workflow-btn" to="/teacher/create-assignment">Create Assignment</Link></>} />
     <div className="metric-grid">{cards.map(([name, value, note]) => <div className="metric-card" key={name}><span>{name}</span><strong>{value}</strong><small>{note}</small></div>)}</div>
     <section className="surface submissions-surface"><div className="table-toolbar"><div className="status-tabs">{["All", "Submitted", "Processing", "Evaluated", "Pending"].map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div><div className="toolbar-controls"><label className="search-field"><Search size={16}/><input aria-label="Search students" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search students or roll no." /></label><select className="compact-select" aria-label="Assignment filter"><option>All assignments</option><option>DSP Assignment 03</option></select><select className="compact-select" aria-label="Status filter" value={status} onChange={(event) => setStatus(event.target.value)}><option>All statuses</option>{["Submitted", "Processing", "Evaluated", "Pending"].map((item) => <option key={item}>{item}</option>)}</select><select className="compact-select" aria-label="Sort submissions" value={sort} onChange={(event) => setSort(event.target.value)}><option value="Latest">Latest submitted</option><option value="Student">Student name</option></select></div></div>
-      <div className="workflow-table-wrap"><table className="workflow-table"><thead><tr><th>Student</th><th>Roll Number</th><th>Assignment</th><th>Submitted At</th><th>File</th><th>Status</th><th>Score</th><th>Action</th></tr></thead><tbody>{filtered.map((item) => <tr key={item.id}><td><strong>{item.student}</strong></td><td className="muted">{item.roll}</td><td>{demoAssignment.shortTitle}</td><td className="muted">{item.submittedAt}</td><td><FilePill name={item.file} pages={item.pages}/></td><td><StatusBadge status={item.status}/></td><td className="score-cell">{item.score}</td><td><button className="text-action" onClick={() => navigate(item.status === "Evaluated" ? `/teacher/evaluations/${item.evaluationId}` : `/teacher/submissions/${item.id}`)}>{item.status === "Evaluated" ? "View Result" : "View Submission"}<ChevronRight size={14}/></button></td></tr>)}</tbody></table></div></section></div>;
+      <div className="workflow-table-wrap"><table className="workflow-table"><thead><tr><th>Student</th><th>Roll Number</th><th>Assignment</th><th>Submitted At</th><th>File</th><th>Status</th><th>Score</th><th>Action</th></tr></thead><tbody>{filtered.map((item) => <tr key={item.id}><td><strong>{item.student}</strong></td><td className="muted">{item.roll}</td><td>{demoAssignment.shortTitle}</td><td className="muted">{item.submittedAt}</td><td><FilePill name={item.file} pages={item.pages}/></td><td><StatusBadge status={item.status}/></td><td className="score-cell">{item.score}</td><td>{getAction(item)}</td></tr>)}</tbody></table></div></section></div>;
 }
 
 export function SubmissionDetailPage() {
@@ -61,6 +72,14 @@ export function SubmissionDetailPage() {
 
 const stages = ["Document Processing", "OCR Text Extraction", "Semantic Answer Analysis", "Rubric Mapping", "Score Generation", "Feedback Generation"];
 const stageText = ["Processing document…", "Extracting answer text…", "Analyzing semantic relevance…", "Mapping response to rubric…", "Calculating marks…", "Generating personalized feedback…"];
+export function SelectSubmissionPage() {
+  const navigate = useNavigate();
+  const eligible = workflowSubmissions.filter((item) => item.status === "Submitted" || item.status === "Pending");
+
+  return <div className="workflow-page"><PageHeader eyebrow="AI-ASSISTED EVALUATION" title="Select Submission for AI Evaluation" subtitle="Choose a submitted or pending paper to run the AI evaluation workflow." actions={<Link className="workflow-btn" to="/teacher/submissions"><ArrowLeft size={15}/> Back to Submissions</Link>} />
+  {eligible.length === 0 ? <section className="surface" style={{ padding: "40px", textAlign: "center", borderRadius: "10px" }}><h2 style={{ fontSize: "20px", color: "#0f172a", marginBottom: "10px" }}>No submissions available</h2><p style={{ color: "#64748b", marginBottom: "20px", fontSize: "14px" }}>All submissions have already been evaluated.</p><Link className="workflow-btn primary" to="/teacher/submissions">Return to Submissions List</Link></section> : <section className="surface submissions-surface"><div className="table-toolbar"><div className="status-tabs"><span style={{ fontSize: "11px", fontWeight: 800, color: "#64748b", letterSpacing: "0.45px", textTransform: "uppercase" }}>Eligible for AI Evaluation</span></div></div><div className="workflow-table-wrap"><table className="workflow-table"><thead><tr><th>Student</th><th>Roll Number</th><th>Assignment</th><th>Submitted At</th><th>File</th><th>Status</th><th>Action</th></tr></thead><tbody>{eligible.map((item) => <tr key={item.id}><td><strong>{item.student}</strong></td><td className="muted">{item.roll}</td><td>{demoAssignment.shortTitle}</td><td className="muted">{item.submittedAt}</td><td><FilePill name={item.file} pages={item.pages}/></td><td><StatusBadge status={item.status}/></td><td><button className="text-action" onClick={() => navigate(`/teacher/evaluate/${item.id}`)}>Start AI Evaluation<ChevronRight size={14}/></button></td></tr>)}</tbody></table></div></section>}</div>;
+}
+
 export function EvaluationPage() {
   const { submissionId } = useParams();
   const submission = getSubmissionById(submissionId);
@@ -73,7 +92,12 @@ export function EvaluationPage() {
     if (!submission) return undefined;
     if (!running) return undefined;
     if (stage >= 5) {
-      const finish = setTimeout(() => { setDone(true); setRunning(false); navigate(`/teacher/evaluations/${submission.evaluationId}`); }, 760);
+      const finish = setTimeout(() => {
+        setDone(true);
+        setRunning(false);
+        markAsEvaluated(submission.id);
+        navigate(`/teacher/evaluations/${submission.evaluationId}`);
+      }, 760);
       return () => clearTimeout(finish);
     }
     const timer = setTimeout(() => setStage((value) => value + 1), 760);
