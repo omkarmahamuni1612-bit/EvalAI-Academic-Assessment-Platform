@@ -117,12 +117,12 @@
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   color: #94a3b8;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: var(--transition-normal);
   position: relative;
 }
 
@@ -140,7 +140,7 @@
   background: #2563eb;
   color: white;
   font-weight: 700;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
 .nav-icon {

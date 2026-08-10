@@ -15,11 +15,15 @@ import {
   UserCheck,
   Award
 } from "lucide-react";
-import { evaluationPreviewData } from "../data/mockData";
+import { demoAssignment, workflowSubmissions } from "../data/workflowData";
 import "./LandingPage.css";
 
 function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
+  const previewSubmission = workflowSubmissions[0];
+  const previewEvaluation = previewSubmission?.evaluation || null;
+  const previewPercentage = previewEvaluation ? Math.round((previewEvaluation.score / previewEvaluation.totalMarks) * 100) : 0;
+  const previewInitials = previewSubmission?.student?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "ST";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -132,10 +136,10 @@ function LandingPage() {
                   <div className="preview-card preview-left">
                     <div className="preview-card-header">
                       <div className="student-info-meta">
-                        <div className="preview-avatar">RP</div>
+                        <div className="preview-avatar">{previewInitials}</div>
                         <div>
-                          <div className="preview-student-name">Rahul Patil</div>
-                          <div className="preview-student-id">ET202-041 · ENTC Engineering</div>
+                          <div className="preview-student-name">{previewSubmission?.student || "Student"}</div>
+                          <div className="preview-student-id">{previewSubmission?.roll || ""} · ENTC Engineering</div>
                         </div>
                       </div>
                       <span className="ocr-pill">
@@ -146,7 +150,7 @@ function LandingPage() {
                     <div className="preview-snippet">
                       <span className="snippet-label">STUDENT ANSWER SNIPPET (OCR)</span>
                       <p className="snippet-text">
-                        "In-order traversal visits left subtree, root, then right subtree. Pre-order visits root first, then left and right."
+                        "{previewEvaluation?.answerText || "No answer text available."}"
                       </p>
                     </div>
                   </div>
@@ -155,10 +159,10 @@ function LandingPage() {
                     <div className="score-summary-header">
                       <div>
                         <div className="score-label">AI EVALUATION SCORE</div>
-                        <div className="score-number">17 <span className="score-total">/ 20</span></div>
+                        <div className="score-number">{previewEvaluation?.score || "—"} <span className="score-total">/ {previewEvaluation?.totalMarks || "—"}</span></div>
                       </div>
                       <span className="score-status-badge">
-                        <CheckCircle2 size={14} style={{ marginRight: "4px" }} /> 85% Grade A
+                        <CheckCircle2 size={14} style={{ marginRight: "4px" }} /> {previewPercentage}% {previewEvaluation?.grade || ""}
                       </span>
                     </div>
 
@@ -167,7 +171,7 @@ function LandingPage() {
                         <Cpu size={14} style={{ marginRight: "6px" }} /> Gemini AI Feedback
                       </div>
                       <p className="feedback-text">
-                        Strong understanding of traversal techniques with minor conceptual gaps in tree balancing algorithms.
+                        {previewEvaluation?.feedback?.strengths || "No feedback available."}
                       </p>
                     </div>
                   </div>
@@ -325,15 +329,15 @@ function LandingPage() {
                   <UserCheck size={16} style={{ marginRight: "6px" }} /> Student Submission
                 </div>
                 <div className="meta-row">
-                  <span>Student: <strong>{evaluationPreviewData.studentName}</strong></span>
-                  <span>Roll: <strong>{evaluationPreviewData.rollNo}</strong></span>
+                  <span>Student: <strong>{previewSubmission?.student || "Student"}</strong></span>
+                  <span>Roll: <strong>{previewSubmission?.roll || ""}</strong></span>
                 </div>
                 <div className="meta-row">
-                  <span>Assignment: <strong>{evaluationPreviewData.assignment}</strong></span>
+                  <span>Assignment: <strong>{demoAssignment.title}</strong></span>
                 </div>
                 <div className="ocr-extracted-preview">
                   <span className="ocr-tag">OCR TEXT EXTRACTED</span>
-                  <p>"{evaluationPreviewData.ocrSnippet}"</p>
+                  <p>"{previewEvaluation?.answerText || "No answer text available."}"</p>
                 </div>
               </div>
 
@@ -342,18 +346,18 @@ function LandingPage() {
                   <Award size={16} style={{ marginRight: "6px" }} /> AI Evaluation Result
                 </div>
                 <div className="result-score-banner">
-                  <span className="banner-score">{evaluationPreviewData.score}</span>
-                  <span className="banner-badge">{evaluationPreviewData.percentage} · Grade A</span>
+                  <span className="banner-score">{previewEvaluation ? `${previewEvaluation.score} / ${previewEvaluation.totalMarks}` : "—"}</span>
+                  <span className="banner-badge">{previewPercentage}% · {previewEvaluation?.grade || ""}</span>
                 </div>
                 <div className="ai-feedback-summary">
-                  <strong>AI Feedback:</strong> {evaluationPreviewData.aiEvaluation}
+                  <strong>AI Feedback:</strong> {previewEvaluation?.feedback?.strengths || "No feedback available."}
                 </div>
                 <div className="rubric-breakdown-list">
-                  {evaluationPreviewData.breakdown.map((item, idx) => (
+                  {(previewEvaluation?.rubric || []).map((item, idx) => (
                     <div key={idx} className="rubric-item">
-                      <span className="r-criteria">{item.criteria}</span>
-                      <span className="r-points">{item.points}</span>
-                      <span className="r-status">{item.status}</span>
+                      <span className="r-criteria">{item.name}</span>
+                      <span className="r-points">{item.score} / {item.max}</span>
+                      <span className="r-status">{item.confidence}</span>
                     </div>
                   ))}
                 </div>

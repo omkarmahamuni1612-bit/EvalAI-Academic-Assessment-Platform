@@ -8,6 +8,7 @@ import CreateAssignmentPage from "./pages/CreateAssignmentPage";
 import {
   EvaluationPage,
   EvaluationResultPage,
+  StudentReportPage,
   SubmissionDetailPage,
   SubmissionsPage,
 } from "./pages/WorkflowPages";
@@ -36,6 +37,7 @@ function App() {
           <Route path="evaluate" element={<EvaluationPage />} />
           <Route path="evaluate/:submissionId" element={<EvaluationPage />} />
           <Route path="evaluations/:evaluationId" element={<EvaluationResultPage />} />
+          <Route path="reports/:evaluationId" element={<StudentReportPage />} />
           <Route path="analytics" element={<TeacherAnalyticsPage />} />
           <Route path="reports" element={<TeacherReportsPage />} />
           <Route

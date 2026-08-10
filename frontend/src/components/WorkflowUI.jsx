@@ -10,8 +10,8 @@ export function StatusBadge({ status }) {
   return <span className={`workflow-status status-${normalized}`}><i />{status}</span>;
 }
 
-export function PaperPreview({ compact = false }) {
-  return <div className={`paper-preview ${compact ? "paper-compact" : ""}`}><div className="paper-top"><span>EvalAI · Answer Script</span><span>Page 1 of 4</span></div><div className="paper-student"><strong>Rahul Patil</strong><span>ET202-041 · Digital Signal Processing</span></div><div className="paper-question"><b>Q1.</b> Explain sampling theorem and the effect of aliasing in digital signal processing.</div><div className="handwritten-text">Sampling is a process in which continuous time signal is converted into discrete time signal. According to Nyquist theorem, sampling frequency should be at least twice the maximum frequency of input signal.<br /><br />If sampling frequency is less than Nyquist rate then aliasing occurs. It creates overlap in spectrum and original signal cannot be recovered properly.</div><div className="paper-annotation">AI note: Answer includes the core theorem and aliasing explanation.</div></div>;
+export function PaperPreview({ compact = false, student = "Student", roll = "", course = "", answerText = "", pages = 1 }) {
+  return <div className={`paper-preview ${compact ? "paper-compact" : ""}`}><div className="paper-top"><span>EvalAI · Answer Script</span><span>Page 1 of {pages}</span></div><div className="paper-student"><strong>{student}</strong><span>{roll}{roll && course ? " · " : ""}{course}</span></div><div className="paper-question"><b>Q1.</b> Explain sampling theorem and the effect of aliasing in digital signal processing.</div><div className="handwritten-text">{answerText || "No extracted answer text available for this submission."}</div><div className="paper-annotation">AI note: Answer includes the core theorem and aliasing explanation.</div></div>;
 }
 
 export function Toast({ message, onClose }) { return message ? <div className="workflow-toast" role="status"><Check size={16} />{message}<button type="button" onClick={onClose} aria-label="Close notification"><X size={15} /></button></div> : null; }

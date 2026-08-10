@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Users,
@@ -33,11 +34,42 @@ import {
   dashboardStats,
   performanceOverviewData,
   submissionStatusData,
-  recentSubmissions,
   upcomingAssignments,
   recentActivity
 } from "../data/mockData";
+import { demoAssignment, workflowSubmissions } from "../data/workflowData";
 import "./TeacherDashboard.css";
+
+function AnimatedMetric({ value }) {
+  const isPercentage = value.includes("%");
+  const target = parseFloat(value) || 0;
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    let start = 0;
+    const duration = 800; // ms
+    const steps = 40;
+    const stepTime = duration / steps;
+    const increment = target / steps;
+
+    const timer = setInterval(() => {
+      start += increment;
+      if (start >= target) {
+        setCurrent(target);
+        clearInterval(timer);
+      } else {
+        setCurrent(start);
+      }
+    }, stepTime);
+
+    return () => clearInterval(timer);
+  }, [target]);
+
+  if (isPercentage) {
+    return <>{current.toFixed(1)}%</>;
+  }
+  return <>{Math.round(current).toLocaleString()}</>;
+}
 
 function TeacherDashboard() {
   const navigate = useNavigate();
@@ -108,7 +140,9 @@ function TeacherDashboard() {
               </div>
             </div>
 
-            <div className="stat-value">{stat.value}</div>
+            <div className="stat-value">
+              <AnimatedMetric value={stat.value} />
+            </div>
 
             <div className="stat-card-bottom">
               <span className={`stat-badge ${stat.changeType}`}>
@@ -321,22 +355,22 @@ function TeacherDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {recentSubmissions.map((sub) => (
+                {workflowSubmissions.slice(0, 5).map((sub) => (
                   <tr key={sub.id}>
                     <td>
                       <div className="student-cell">
                         <div className="student-avatar-sm">
-                          {sub.studentName.split(" ").map((n) => n[0]).join("")}
+                          {sub.student.split(" ").map((n) => n[0]).join("")}
                         </div>
                         <div>
-                          <div className="student-name">{sub.studentName}</div>
-                          <div className="student-roll">{sub.rollNo}</div>
+                          <div className="student-name">{sub.student}</div>
+                          <div className="student-roll">{sub.roll}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="font-medium">{sub.assignmentTitle}</td>
+                    <td className="font-medium">{demoAssignment.shortTitle}</td>
                     <td className="text-muted">{sub.submittedAt}</td>
-                    <td>{getStatusBadge(sub.status, sub.statusType)}</td>
+                    <td>{getStatusBadge(sub.status, sub.status === "Evaluated" ? "success" : "warning")}</td>
                     <td>
                       <span className="score-badge font-bold">{sub.score}</span>
                     </td>
@@ -344,7 +378,7 @@ function TeacherDashboard() {
                       <button
                         type="button"
                         className="table-action-btn"
-                        onClick={() => navigate(sub.status === "Evaluated" ? "/teacher/evaluate" : "/teacher/submissions")}
+                        onClick={() => navigate(sub.status === "Evaluated" ? `/teacher/evaluations/${sub.evaluationId}` : `/teacher/submissions/${sub.id}`)}
                       >
                         {sub.status === "Evaluated" ? "View Result" : "Evaluate"}
                       </button>

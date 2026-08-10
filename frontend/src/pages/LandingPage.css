@@ -163,6 +163,8 @@
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 16px;
+  opacity: 0;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .hero-headline {
@@ -172,6 +174,8 @@
   line-height: 1.1;
   letter-spacing: -1.8px;
   margin-bottom: 16px;
+  opacity: 0;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
 }
 
 .hero-highlight {
@@ -184,6 +188,8 @@
   line-height: 1.6;
   color: #64748b;
   margin-bottom: 24px;
+  opacity: 0;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
 }
 
 .hero-cta-group {
@@ -191,6 +197,8 @@
   align-items: center;
   gap: 14px;
   margin-bottom: 36px;
+  opacity: 0;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.45s forwards;
 }
 
 .btn-hero-primary {
@@ -204,12 +212,12 @@
   font-weight: 700;
   text-decoration: none;
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-  transition: all 0.2s ease;
+  transition: var(--transition-normal);
 }
 
 .btn-hero-primary:hover {
   background: #1d4ed8;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
 }
 
@@ -224,12 +232,13 @@
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-normal);
 }
 
 .btn-hero-secondary:hover {
   border-color: #2563eb;
   color: #2563eb;
+  transform: translateY(-1px);
 }
 
 /* HERO PRODUCT PREVIEW */
@@ -237,6 +246,30 @@
 .hero-preview-wrapper {
   width: 100%;
   max-width: 940px;
+  opacity: 0;
+  animation: scaleUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleUpFade {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .preview-window {
