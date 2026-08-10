@@ -208,6 +208,25 @@
   transform: translateX(2px);
 }
 
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.action-group .text-action {
+  font-size: 10.5px;
+}
+
+.re-evaluate-action {
+  color: #b45309;
+}
+
+.re-evaluate-action:hover {
+  color: #92400e;
+}
+
 .detail-meta {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

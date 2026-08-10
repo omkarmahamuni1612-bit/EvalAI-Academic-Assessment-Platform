@@ -167,6 +167,56 @@ export const markAsEvaluated = (submissionId) => {
   return submission;
 };
 
+// Re-run AI evaluation for a single submission — generates fresh evaluation data
+// while preserving the student's identity, submissionId and evaluationId.
+export const reEvaluateSubmission = (submissionId) => {
+  const submission = workflowSubmissions.find((item) => item.id === submissionId);
+  if (!submission) return null;
+
+  const base = submission.evaluation || {
+    score: 0,
+    totalMarks: demoAssignment.totalMarks,
+    grade: "Grade D",
+    confidence: "—",
+    semanticRelevance: "—",
+    answerText: "No extracted answer text available for this submission.",
+    referenceAnswer: demoAssignment.referenceAnswer,
+    rubric: [],
+    feedback: { strengths: "", improvements: "", missing: "" },
+  };
+
+  // Generate a fresh score within a realistic band (keeps the same student's data)
+  const freshScore = Math.min(
+    base.totalMarks,
+    Math.max(1, base.score + (Math.floor(Math.random() * 3) - 1)),
+  );
+  const freshGrade = freshScore >= 18 ? "Grade A+" : freshScore >= 16 ? "Grade A" : freshScore >= 14 ? "Grade B" : freshScore >= 12 ? "Grade C" : "Grade D";
+  const freshConfidence = `${88 + Math.floor(Math.random() * 9)}%`;
+  const freshSemantic = `${74 + Math.floor(Math.random() * 19)}%`;
+
+  submission.evaluation = {
+    ...base,
+    score: freshScore,
+    grade: freshGrade,
+    confidence: freshConfidence,
+    semanticRelevance: freshSemantic,
+    rubric: base.rubric.map((item) => ({
+      ...item,
+      score: Math.max(0, Math.min(item.max, item.score + (Math.floor(Math.random() * 3) - 1))),
+      confidence: ["High", "Medium", "Low"][Math.floor(Math.random() * 3)],
+    })),
+    feedback: {
+      strengths: base.feedback.strengths,
+      improvements: base.feedback.improvements,
+      missing: base.feedback.missing,
+    },
+  };
+
+  submission.status = "Evaluated";
+  submission.score = `${submission.evaluation.score} / ${submission.evaluation.totalMarks}`;
+  return submission;
+};
+
 // Build a complete student report object from a submission's evaluation data
 export const getStudentReport = (submission) => {
   if (!submission) return null;

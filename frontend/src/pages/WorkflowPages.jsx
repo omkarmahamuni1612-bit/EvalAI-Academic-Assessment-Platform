@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowLeft, Check, CheckCircle2, ChevronRight, Cpu, Download, Eye, FileSpreadsheet, Play, Search, Sparkles, WandSparkles } from "lucide-react";
-import { analyticsTrend, demoAssignment, getClassAnalytics, getStudentReport, getSubmissionByEvaluationId, getSubmissionById, markAsEvaluated, rubricAnalytics, scoreDistribution, workflowSubmissions } from "../data/workflowData";
+import { analyticsTrend, demoAssignment, getClassAnalytics, getStudentReport, getSubmissionByEvaluationId, getSubmissionById, markAsEvaluated, reEvaluateSubmission, rubricAnalytics, scoreDistribution, workflowSubmissions } from "../data/workflowData";
 import { FilePill, PageHeader, PaperPreview, StatusBadge, Toast } from "../components/WorkflowUI";
 import "./WorkflowPages.css";
 
@@ -39,7 +39,7 @@ export function SubmissionsPage() {
 
   const getAction = (item) => {
     if (item.status === "Evaluated") {
-      return <button className="text-action" onClick={() => navigate(`/teacher/evaluations/${item.evaluationId}`)}>View Result<ChevronRight size={14}/></button>;
+      return <div className="action-group"><button className="text-action" onClick={() => navigate(`/teacher/evaluations/${item.evaluationId}`)}>View Result<ChevronRight size={14}/></button><button className="text-action re-evaluate-action" onClick={() => navigate(`/teacher/evaluate/${item.id}`)}>Re-evaluate<ChevronRight size={14}/></button></div>;
     }
     if (item.status === "Processing") {
       return <button className="text-action" onClick={() => navigate(`/teacher/evaluate/${item.id}`)}>View Evaluation<ChevronRight size={14}/></button>;
@@ -88,6 +88,8 @@ export function EvaluationPage() {
   const [stage, setStage] = useState(-1);
   const [done, setDone] = useState(false);
 
+  const isReEvaluation = submission?.status === "Evaluated";
+
   useEffect(() => {
     if (!submission) return undefined;
     if (!running) return undefined;
@@ -95,14 +97,18 @@ export function EvaluationPage() {
       const finish = setTimeout(() => {
         setDone(true);
         setRunning(false);
-        markAsEvaluated(submission.id);
+        if (isReEvaluation) {
+          reEvaluateSubmission(submission.id);
+        } else {
+          markAsEvaluated(submission.id);
+        }
         navigate(`/teacher/evaluations/${submission.evaluationId}`);
       }, 760);
       return () => clearTimeout(finish);
     }
     const timer = setTimeout(() => setStage((value) => value + 1), 760);
     return () => clearTimeout(timer);
-  }, [navigate, running, stage, submission?.evaluationId, submission]);
+  }, [navigate, running, stage, submission?.evaluationId, submission, isReEvaluation]);
 
   if (!submission) {
     return <NotFoundState title="Submission Not Found" message="We could not locate any student submission matching the submission ID:" id={submissionId} />;
@@ -116,7 +122,7 @@ export function EvaluationPage() {
 
   const start = () => { setDone(false); setStage(0); setRunning(true); };
   return <div className="workflow-page"><PageHeader eyebrow="AI-ASSISTED EVALUATION" title="AI Evaluation" subtitle={`${submission.student} · ${demoAssignment.title} · ${submission.id.toUpperCase()}`} actions={<Link className="workflow-btn" to={`/teacher/submissions/${submission.id}`}><ArrowLeft size={15}/> Submission</Link>} />
-  <section className="surface evaluation-top"><div><span>ASSESSMENT CONTEXT</span><h2>{demoAssignment.title}</h2><p>{submission.student} · {submission.roll} · Total marks: {demoAssignment.totalMarks}</p></div>{done ? <button className="workflow-btn primary" onClick={() => navigate(`/teacher/evaluations/${submission.evaluationId}`)}><CheckCircle2 size={16}/> Review Evaluation</button> : <button className="workflow-btn primary" onClick={start} disabled={running}><Play size={15}/>{running ? "Evaluation in Progress" : "Start AI Evaluation"}</button>}</section>
+  <section className="surface evaluation-top"><div><span>ASSESSMENT CONTEXT</span><h2>{demoAssignment.title}</h2><p>{submission.student} · {submission.roll} · Total marks: {demoAssignment.totalMarks}</p></div>{done ? <button className="workflow-btn primary" onClick={() => navigate(`/teacher/evaluations/${submission.evaluationId}`)}><CheckCircle2 size={16}/> Review Evaluation</button> : <button className="workflow-btn primary" onClick={start} disabled={running}><Play size={15}/>{running ? "Evaluation in Progress" : isReEvaluation ? "Re-evaluate Submission" : "Start AI Evaluation"}</button>}</section>
   <section className="surface stepper-card"><div className="evaluation-state"><Cpu size={19}/><div><strong>{done ? "Evaluation Complete" : stage >= 0 ? stageText[stage] : "Ready to evaluate this submission"}</strong><span>{done ? "AI recommendations are ready for teacher review." : "This is a local demo simulation. No external AI is used."}</span></div></div><div className="evaluation-stepper">{stages.map((name, index) => <div className={`eval-step ${index <= stage ? "complete" : ""} ${index === stage && running ? "current" : ""}`} key={name}><b>{index < stage || done ? <Check size={13}/> : index + 1}</b><span>{name}</span></div>)}</div></section>
   <div className="analysis-grid"><section className="surface analysis-main"><div className="panel-heading"><div><span>LIVE ANALYSIS</span><h2>Response and Reference Context</h2></div>{stage >= 1 && <StatusBadge status="Processing"/>}</div><div className="analysis-copy"><div><h3>OCR Extracted Text</h3><p>{answerText}</p></div><div><h3>Reference Answer</h3><p>{demoAssignment.referenceAnswer}</p></div></div></section><aside className="analysis-metrics">{[["Semantic Similarity", semanticRelevance], ["Rubric Match", "4 / 4"], ["AI Confidence", confidence], ["Potential Score", potentialScore]].map(([name, value]) => <div className="surface analysis-metric" key={name}><span>{name}</span><strong>{stage >= 2 || done ? value : "—"}</strong><small>{stage >= 2 || done ? "Demo analysis value" : "Available during analysis"}</small></div>)}</aside></div><div className="teacher-control-banner"><WandSparkles size={18}/><span>AI assists the evaluation process. <strong>Professor123 remains responsible for final marks and feedback.</strong></span></div></div>;
 }

@@ -19,6 +19,8 @@ import {
 import {
   AreaChart,
   Area,
+  Bar,
+  BarChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -37,8 +39,16 @@ import {
   upcomingAssignments,
   recentActivity
 } from "../data/mockData";
-import { demoAssignment, workflowSubmissions } from "../data/workflowData";
+import { demoAssignment, getClassAnalytics, workflowSubmissions } from "../data/workflowData";
 import "./TeacherDashboard.css";
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return "Good Morning";
+  if (hour >= 12 && hour < 17) return "Good Afternoon";
+  if (hour >= 17 && hour < 21) return "Good Evening";
+  return "Good Night";
+}
 
 function AnimatedMetric({ value }) {
   const isPercentage = value.includes("%");
@@ -114,7 +124,7 @@ function TeacherDashboard() {
       {/* DASHBOARD HEADER */}
       <div className="dashboard-header">
         <div className="header-text">
-          <h1>Good morning, {teacherProfile.name}</h1>
+          <h1>{getGreeting()}, {teacherProfile.name}</h1>
           <p>Here's your assessment overview for today.</p>
         </div>
 
@@ -375,13 +385,32 @@ function TeacherDashboard() {
                       <span className="score-badge font-bold">{sub.score}</span>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="table-action-btn"
-                        onClick={() => navigate(sub.status === "Evaluated" ? `/teacher/evaluations/${sub.evaluationId}` : `/teacher/evaluate/${sub.id}`)}
-                      >
-                        {sub.status === "Evaluated" ? "View Result" : "Evaluate"}
-                      </button>
+                      {sub.status === "Evaluated" ? (
+                        <div className="dashboard-action-group">
+                          <button
+                            type="button"
+                            className="table-action-btn"
+                            onClick={() => navigate(`/teacher/evaluations/${sub.evaluationId}`)}
+                          >
+                            View Result
+                          </button>
+                          <button
+                            type="button"
+                            className="table-action-btn re-evaluate-btn"
+                            onClick={() => navigate(`/teacher/evaluate/${sub.id}`)}
+                          >
+                            Re-evaluate
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="table-action-btn"
+                          onClick={() => navigate(`/teacher/evaluate/${sub.id}`)}
+                        >
+                          Evaluate
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -434,6 +463,121 @@ function TeacherDashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ANALYTICS OVERVIEW SECTION */}
+      <div className="section-card analytics-preview-card">
+        <div className="card-header flex-header">
+          <div>
+            <h2>Analytics Overview</h2>
+            <span className="subtitle">Class performance and evaluation progress overview</span>
+          </div>
+          <button
+            type="button"
+            className="analytics-view-btn"
+            onClick={() => navigate("/teacher/analytics")}
+          >
+            View Full Analytics <ChevronRight size={15} />
+          </button>
+        </div>
+
+        <div className="analytics-preview-grid">
+          <div className="analytics-preview-metrics">
+            <div className="analytics-metric-card">
+              <span>Class Average</span>
+              <strong>{getClassAnalytics()?.averagePercentage || "—"}%</strong>
+              <small>Across evaluated submissions</small>
+            </div>
+            <div className="analytics-metric-card">
+              <span>Evaluated</span>
+              <strong>{getClassAnalytics()?.evaluatedCount || 0}</strong>
+              <small>Submissions reviewed</small>
+            </div>
+            <div className="analytics-metric-card">
+              <span>Pending</span>
+              <strong>{getClassAnalytics()?.pendingCount || 0}</strong>
+              <small>Awaiting review</small>
+            </div>
+            <div className="analytics-metric-card">
+              <span>Completion</span>
+              <strong>{getClassAnalytics()?.completionPercentage || "—"}%</strong>
+              <small>Evaluation progress</small>
+            </div>
+          </div>
+
+          <div className="analytics-preview-charts">
+            <div className="analytics-preview-chart">
+              <div className="analytics-chart-heading">
+                <span>PERFORMANCE TREND</span>
+                <strong>Class Average Score</strong>
+              </div>
+              <ResponsiveContainer width="100%" height={150}>
+                <AreaChart data={performanceOverviewData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="analyticsPreviewFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={10} domain={[60, 100]} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      borderColor: "#1e293b",
+                      borderRadius: "8px",
+                      color: "#f8fafc",
+                      fontSize: "12px",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.2)"
+                    }}
+                    formatter={(value) => [`${value}%`, "Class Average"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#2563eb"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#analyticsPreviewFill)"
+                    isAnimationActive={true}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="analytics-preview-chart">
+              <div className="analytics-chart-heading">
+                <span>SCORE DISTRIBUTION</span>
+                <strong>Students by Score Band</strong>
+              </div>
+              <ResponsiveContainer width="100%" height={150}>
+                <BarChart data={[
+                  { name: "0-39", students: workflowSubmissions.filter((s) => s.evaluation && (s.evaluation.score / s.evaluation.totalMarks) * 100 < 40).length },
+                  { name: "40-59", students: workflowSubmissions.filter((s) => s.evaluation && (s.evaluation.score / s.evaluation.totalMarks) * 100 >= 40 && (s.evaluation.score / s.evaluation.totalMarks) * 100 < 60).length },
+                  { name: "60-74", students: workflowSubmissions.filter((s) => s.evaluation && (s.evaluation.score / s.evaluation.totalMarks) * 100 >= 60 && (s.evaluation.score / s.evaluation.totalMarks) * 100 < 75).length },
+                  { name: "75-89", students: workflowSubmissions.filter((s) => s.evaluation && (s.evaluation.score / s.evaluation.totalMarks) * 100 >= 75 && (s.evaluation.score / s.evaluation.totalMarks) * 100 < 90).length },
+                  { name: "90-100", students: workflowSubmissions.filter((s) => s.evaluation && (s.evaluation.score / s.evaluation.totalMarks) * 100 >= 90).length }
+                ]} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#0f172a",
+                      borderColor: "#1e293b",
+                      borderRadius: "8px",
+                      color: "#f8fafc",
+                      fontSize: "12px",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.2)"
+                    }}
+                  />
+                  <Bar dataKey="students" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>

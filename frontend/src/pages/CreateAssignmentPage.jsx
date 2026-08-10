@@ -7,11 +7,13 @@ import {
   ClipboardCheck,
   Eye,
   FileText,
+  FileWarning,
   Info,
   Minus,
   Plus,
   Save,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -94,6 +96,82 @@ function Dialog({ children, onClose, wide = false }) {
   );
 }
 
+function formatFileSize(bytes) {
+  if (!bytes && bytes !== 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function PdfUpload({ label, helperText, file, onFileChange, onRemove }) {
+  const [dragActive, setDragActive] = useState(false);
+  const [error, setError] = useState("");
+  const inputId = `pdf-upload-${label.toLowerCase().replaceAll(" ", "-")}`;
+
+  const validateAndSet = (selectedFile) => {
+    if (!selectedFile) return;
+    if (selectedFile.type !== "application/pdf" && !selectedFile.name.toLowerCase().endsWith(".pdf")) {
+      setError("Only PDF files are allowed. Please select a valid PDF document.");
+      return;
+    }
+    setError("");
+    onFileChange(selectedFile);
+  };
+
+  const handleInputChange = (event) => {
+    validateAndSet(event.target.files?.[0]);
+    event.target.value = "";
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setDragActive(false);
+    validateAndSet(event.dataTransfer.files?.[0]);
+  };
+
+  return (
+    <div className="pdf-upload-block">
+      <div className="pdf-upload-label">
+        <span>{label}</span>
+        <small>{helperText}</small>
+      </div>
+
+      {file ? (
+        <div className="pdf-file-card">
+          <div className="pdf-file-icon"><FileText size={22} /></div>
+          <div className="pdf-file-info">
+            <strong>{file.name}</strong>
+            <span>{formatFileSize(file.size)} · PDF document</span>
+          </div>
+          <div className="pdf-file-actions">
+            <label className="pdf-replace-btn">
+              <Upload size={14} /> Replace
+              <input type="file" accept="application/pdf,.pdf" onChange={handleInputChange} />
+            </label>
+            <button type="button" className="pdf-remove-btn" onClick={onRemove} aria-label={`Remove ${label}`}>
+              <Trash2 size={15} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <label
+          className={`pdf-dropzone ${dragActive ? "is-dragging" : ""}`}
+          onDragOver={(event) => { event.preventDefault(); setDragActive(true); }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={handleDrop}
+        >
+          <input type="file" id={inputId} accept="application/pdf,.pdf" onChange={handleInputChange} />
+          <span className="pdf-dropzone-icon"><Upload size={20} /></span>
+          <strong>Upload PDF</strong>
+          <small>Drag & drop your PDF here, or click to browse</small>
+        </label>
+      )}
+
+      {error && <div className="pdf-upload-error" role="alert"><FileWarning size={14} />{error}</div>}
+    </div>
+  );
+}
+
 function CreateAssignmentPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
@@ -109,6 +187,8 @@ function CreateAssignmentPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showPublished, setShowPublished] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
+  const [assignmentPdf, setAssignmentPdf] = useState(null);
+  const [referenceAnswerPdf, setReferenceAnswerPdf] = useState(null);
 
   const allocatedMarks = useMemo(
     () => criteria.reduce((total, criterion) => total + (Number(criterion.marks) || 0), 0),
@@ -165,6 +245,17 @@ function CreateAssignmentPage() {
       );
       return;
     }
+
+    // Preserve selected PDF info in the assignment demo data (frontend-only storage)
+    const publishedAssignment = {
+      ...form,
+      assignmentPdf: assignmentPdf
+        ? { name: assignmentPdf.name, size: assignmentPdf.size, type: assignmentPdf.type }
+        : null,
+      referenceAnswerPdf: referenceAnswerPdf
+        ? { name: referenceAnswerPdf.name, size: referenceAnswerPdf.size, type: referenceAnswerPdf.type }
+        : null,
+    };
 
     setValidationMessage("");
     setShowPublished(true);
@@ -230,6 +321,13 @@ function CreateAssignmentPage() {
               <label className="field">Total Marks<input type="number" name="totalMarks" min="1" value={form.totalMarks} onChange={updateForm} required /></label>
               <label className="field field-wide">Description / Instructions<textarea name="description" value={form.description} onChange={updateForm} rows="4" /></label>
             </div>
+            <PdfUpload
+              label="Assignment PDF"
+              helperText="Upload the assignment/question paper PDF"
+              file={assignmentPdf}
+              onFileChange={setAssignmentPdf}
+              onRemove={() => setAssignmentPdf(null)}
+            />
           </section>
 
           <section className="assignment-section">
@@ -252,7 +350,13 @@ function CreateAssignmentPage() {
           <section className="assignment-section">
             <div className="section-heading"><div><span>03</span><h2>Reference Answer</h2></div><p>Provide an academic benchmark for AI-assisted evaluation.</p></div>
             <label className="field field-wide">Reference Answer / Model Answer<textarea name="referenceAnswer" value={form.referenceAnswer} onChange={updateForm} rows="7" placeholder="Add a model answer or key concepts..." /></label>
-            <button type="button" className="reference-upload" onClick={() => setNotice("Reference material attachment is ready for demo preview.")}><span className="upload-icon"><Upload size={18} /></span><span><strong>Attach Reference Material</strong><small>PDF, DOCX, PNG, JPG supported · Frontend demo only</small></span><FileText size={18} /></button>
+            <PdfUpload
+              label="Reference Answer PDF"
+              helperText="Upload the model/reference answer PDF used for AI evaluation"
+              file={referenceAnswerPdf}
+              onFileChange={setReferenceAnswerPdf}
+              onRemove={() => setReferenceAnswerPdf(null)}
+            />
           </section>
 
           <section className="assignment-section rubric-section">
@@ -284,7 +388,7 @@ function CreateAssignmentPage() {
 
       {showPreview && <Dialog onClose={() => setShowPreview(false)} wide><button type="button" className="dialog-close" onClick={() => setShowPreview(false)} aria-label="Close preview"><X size={19} /></button><div className="preview-eyebrow"><Eye size={15} /> ASSIGNMENT PREVIEW</div><h2>{form.title || "Untitled Assignment"}</h2><p className="preview-course">{form.course} · {form.division} · {form.assignmentType}</p><div className="preview-detail-grid"><div><span>Due date</span><strong>{dueDateLabel}</strong></div><div><span>Total marks</span><strong>{totalMarks} marks</strong></div><div><span>Evaluation</span><strong>{aiEnabled ? "AI-assisted" : "Manual review"}</strong></div></div><h3>Instructions</h3><p className="preview-copy">{form.description || "No instructions added."}</p><h3>Evaluation rubric</h3><div className="preview-rubric">{criteria.map((item) => <div key={item.id}><span>{item.name || "Untitled criterion"}</span><strong>{item.marks} marks</strong></div>)}</div><button type="button" className="assignment-btn assignment-btn-primary preview-close" onClick={() => setShowPreview(false)}>Continue Editing</button></Dialog>}
 
-      {showPublished && <Dialog onClose={() => setShowPublished(false)}><div className="success-icon"><Check size={30} /></div><div className="success-copy"><span>READY FOR STUDENTS</span><h2>Assignment Published Successfully</h2><p>{form.title} is now available to {form.division}. AI-assisted evaluation settings and your rubric have been saved for the demo.</p></div><div className="success-actions"><button type="button" className="assignment-btn assignment-btn-secondary" onClick={() => navigate("/teacher/dashboard")}>Back to Dashboard</button><button type="button" className="assignment-btn assignment-btn-primary" onClick={() => navigate("/teacher/submissions")}>View Submissions</button></div></Dialog>}
+      {showPublished && <Dialog onClose={() => setShowPublished(false)}><div className="success-icon"><Check size={30} /></div><div className="success-copy"><span>READY FOR STUDENTS</span><h2>Assignment Published Successfully</h2><p>{form.title} is now available to {form.division}. AI-assisted evaluation settings and your rubric have been saved for the demo.</p>{(assignmentPdf || referenceAnswerPdf) && <div className="published-pdf-summary">{(assignmentPdf ? <span><FileText size={13} /> Assignment PDF: {assignmentPdf.name}</span> : null)}{(referenceAnswerPdf ? <span><FileText size={13} /> Reference PDF: {referenceAnswerPdf.name}</span> : null)}</div>}</div><div className="success-actions"><button type="button" className="assignment-btn assignment-btn-secondary" onClick={() => navigate("/teacher/dashboard")}>Back to Dashboard</button><button type="button" className="assignment-btn assignment-btn-primary" onClick={() => navigate("/teacher/submissions")}>View Submissions</button></div></Dialog>}
     </div>
   );
 }
