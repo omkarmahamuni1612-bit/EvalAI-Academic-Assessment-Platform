@@ -19,6 +19,7 @@ import {
   X
 } from "lucide-react";
 import { teacherProfile } from "../data/mockData";
+import { logoutTeacher } from "../auth/teacherAuth";
 import "./TeacherLayout.css";
 
 function TeacherLayout() {
@@ -49,6 +50,16 @@ function TeacherLayout() {
       label: "AI Evaluation",
       path: "/teacher/evaluate",
       icon: Cpu,
+    },
+    {
+      label: "In-Sem Exam",
+      path: "/teacher/insem",
+      icon: FileCheck2,
+    },
+    {
+      label: "End-Sem Exam",
+      path: "/teacher/endsem",
+      icon: FileCheck2,
     },
     {
       label: "Analytics",

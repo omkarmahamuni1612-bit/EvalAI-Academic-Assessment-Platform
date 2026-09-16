@@ -33,13 +33,14 @@ import {
 } from "recharts";
 import {
   teacherProfile,
-  dashboardStats,
   performanceOverviewData,
   submissionStatusData,
   upcomingAssignments,
   recentActivity
 } from "../data/mockData";
-import { demoAssignment, getClassAnalytics, workflowSubmissions } from "../data/workflowData";
+import { demoAssignment, getClassAnalytics, workflowSubmissions, getDashboardOverviewData, createdAssessments } from "../data/workflowData";
+import { getInSemExam, getInSemSubmissions } from "../data/inSemData";
+import { getEndSemExam, getEndSemSubmissions } from "../data/endSemData";
 import "./TeacherDashboard.css";
 
 function getGreeting() {
@@ -83,21 +84,21 @@ function AnimatedMetric({ value }) {
 
 function TeacherDashboard() {
   const navigate = useNavigate();
+  const inSemSubs = getInSemSubmissions();
+  const endSemSubs = getEndSemSubmissions();
+  const inSemExamData = getInSemExam();
+  const endSemExamData = getEndSemExam();
 
-  const getStatIcon = (iconName) => {
-    switch (iconName) {
-      case "Users":
-        return <Users size={20} />;
-      case "BookOpen":
-        return <BookOpen size={20} />;
-      case "Clock":
-        return <Clock size={20} />;
-      case "TrendingUp":
-        return <TrendingUp size={20} />;
-      default:
-        return <BarChart2 size={20} />;
-    }
-  };
+  const overview = getDashboardOverviewData(inSemSubs, endSemSubs, inSemExamData, endSemExamData);
+
+  const dynamicKpiCards = [
+    { id: "total-students", title: "Total Students", value: String(overview.totalStudents), change: "Across active courses", changeType: "positive", icon: Users, tone: "stat-total-students" },
+    { id: "total-assessments", title: "Total Assessments", value: String(overview.totalAssessments), change: "Assignment, In-Sem & End-Sem", changeType: "neutral", icon: BookOpen, tone: "stat-active-assignments" },
+    { id: "pending-evaluations", title: "Pending Evaluations", value: String(overview.pendingCount), change: "Awaiting evaluation/review", changeType: overview.pendingCount > 0 ? "warning" : "positive", icon: Clock, tone: "stat-pending-evaluations" },
+    { id: "evaluated", title: "Evaluated Papers", value: String(overview.evaluatedCount), change: "AI & teacher evaluated", changeType: "positive", icon: CheckCircle2, tone: "stat-total-students" },
+    { id: "approved", title: "Approved Evaluations", value: String(overview.approvedCount), change: "Teacher approved", changeType: "positive", icon: FileCheck2, tone: "stat-average-score" },
+    { id: "published", title: "Published Results", value: String(overview.publishedCount), change: "Released to students", changeType: "positive", icon: TrendingUp, tone: "stat-average-score" },
+  ];
 
   const getStatusBadge = (status, statusType) => {
     let badgeClass = "badge-success";
@@ -134,34 +135,36 @@ function TeacherDashboard() {
             className="primary-btn dashboard-cta-btn"
             onClick={() => navigate("/teacher/create-assignment")}
           >
-            <PlusCircle size={17} style={{ marginRight: "6px" }} /> Create Assignment
+            <PlusCircle size={17} style={{ marginRight: "6px" }} /> Create Assessment
           </button>
         </div>
       </div>
 
-      {/* 4 STATS CARDS */}
-      <div className="stats-grid">
-        {dashboardStats.map((stat) => (
-          <div key={stat.id} className="stat-card">
-            <div className="stat-card-top">
-              <span className="stat-title">{stat.title}</span>
-              <div className={`stat-icon-wrapper stat-${stat.id}`}>
-                {getStatIcon(stat.iconName)}
+      {/* DYNAMIC KPI CARDS */}
+      <div className="stats-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        {dynamicKpiCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.id} className="stat-card">
+              <div className="stat-card-top">
+                <span className="stat-title">{stat.title}</span>
+                <div className={`stat-icon-wrapper ${stat.tone}`}>
+                  <Icon size={19} />
+                </div>
+              </div>
+
+              <div className="stat-value">
+                <AnimatedMetric value={stat.value} />
+              </div>
+
+              <div className="stat-card-bottom">
+                <span className={`stat-badge ${stat.changeType}`}>
+                  {stat.change}
+                </span>
               </div>
             </div>
-
-            <div className="stat-value">
-              <AnimatedMetric value={stat.value} />
-            </div>
-
-            <div className="stat-card-bottom">
-              <span className={`stat-badge ${stat.changeType}`}>
-                {stat.change}
-              </span>
-              <span className="stat-description">{stat.description}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* QUICK ACTIONS ROW */}
@@ -181,8 +184,8 @@ function TeacherDashboard() {
               <PlusCircle size={18} />
             </div>
             <div className="action-info">
-              <h3>Create Assignment</h3>
-              <p>Set rubrics & model keys</p>
+              <h3>Create Assessment</h3>
+              <p>Assignment, In-Sem, or End-Sem</p>
             </div>
             <ArrowUpRight size={16} className="action-arrow" />
           </button>
@@ -197,7 +200,7 @@ function TeacherDashboard() {
             </div>
             <div className="action-info">
               <h3>Review Submissions</h3>
-              <p>24 Papers pending review</p>
+              <p>{overview.pendingCount} papers pending review</p>
             </div>
             <ArrowUpRight size={16} className="action-arrow" />
           </button>
@@ -231,6 +234,69 @@ function TeacherDashboard() {
             </div>
             <ArrowUpRight size={16} className="action-arrow" />
           </button>
+        </div>
+      </div>
+
+      {/* ASSESSMENT SUMMARY TABLE */}
+      <div className="section-card assessment-summary-card" style={{ marginBottom: "24px" }}>
+        <div className="card-header flex-header">
+          <div>
+            <h2>Assessment Summary</h2>
+            <span className="subtitle">Overview of configured academic assessments</span>
+          </div>
+          <button
+            type="button"
+            className="primary-btn dashboard-cta-btn"
+            onClick={() => navigate("/teacher/create-assignment")}
+          >
+            <PlusCircle size={15} style={{ marginRight: "4px" }} /> Create Assessment
+          </button>
+        </div>
+
+        <div className="table-responsive">
+          <table className="submissions-table">
+            <thead>
+              <tr>
+                <th>Assessment Title</th>
+                <th>Type</th>
+                <th>Total Marks</th>
+                <th>Division</th>
+                <th>Evaluated / Submissions</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview.allAssessments.map((asg) => {
+                const isAssignment = asg.assessmentType === "assignment";
+                const isInSem = asg.assessmentType === "in-sem";
+                const typeLabel = isInSem ? "In-Sem Exam" : asg.assessmentType === "end-sem" ? "End-Sem Exam" : "Assignment";
+                const typeBadge = isInSem ? "badge-warning" : asg.assessmentType === "end-sem" ? "badge-processing" : "badge-success";
+                const asgSubs = overview.allSubmissions.filter((s) => s.assessmentType === asg.assessmentType);
+                const evalCount = asgSubs.filter((s) => s.evaluation && (s.status === "Evaluated" || s.status === "Evaluation Completed" || s.status === "Result Published" || s.status === "Approved")).length;
+
+                return (
+                  <tr key={asg.id}>
+                    <td><strong>{asg.title}</strong></td>
+                    <td><span className={`status-pill ${typeBadge}`}>{typeLabel}</span></td>
+                    <td><strong>{asg.totalMarks} Marks</strong></td>
+                    <td>{asg.division || "SE ENTC – A"}</td>
+                    <td>{evalCount} / {asgSubs.length}</td>
+                    <td><span className="status-pill badge-success">{asg.status || "Active"}</span></td>
+                    <td>
+                      <button
+                        type="button"
+                        className="table-action-btn"
+                        onClick={() => navigate(isInSem ? "/teacher/insem" : asg.assessmentType === "end-sem" ? "/teacher/endsem" : "/teacher/submissions")}
+                      >
+                        Workspace <ChevronRight size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 

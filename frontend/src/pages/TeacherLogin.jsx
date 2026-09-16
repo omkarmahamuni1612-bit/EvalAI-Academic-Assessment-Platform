@@ -10,20 +10,36 @@ import {
   GraduationCap,
   ShieldCheck,
   Award,
-  BarChart3
+  BarChart3,
+  AlertCircle,
+  Loader2
 } from "lucide-react";
+import { loginTeacher, DEMO_TEACHER_EMAIL, DEMO_TEACHER_PASSWORD } from "../auth/teacherAuth";
 import "./TeacherLogin.css";
 
 function TeacherLogin() {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("teacher@college.edu");
-  const [password, setPassword] = useState("••••••••••••");
+  const [email, setEmail] = useState(DEMO_TEACHER_EMAIL);
+  const [password, setPassword] = useState(DEMO_TEACHER_PASSWORD);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Navigate directly to Teacher Dashboard for demo
-    navigate("/teacher/dashboard");
+    setErrorMsg("");
+    setLoading(true);
+
+    setTimeout(() => {
+      const res = loginTeacher(email, password);
+      if (res.success) {
+        setLoading(false);
+        navigate("/teacher/dashboard");
+      } else {
+        setLoading(false);
+        setErrorMsg(res.error || "Authentication failed. Please check credentials.");
+      }
+    }, 400);
   };
 
   return (
@@ -96,8 +112,26 @@ function TeacherLogin() {
 
           <div className="demo-access-banner">
             <ShieldCheck size={16} className="demo-shield-icon" />
-            <span><strong>Demo Access Enabled</strong></span>
+            <span><strong>Demo Access Enabled</strong> (Use <code>{DEMO_TEACHER_EMAIL}</code>)</span>
           </div>
+
+          {errorMsg && (
+            <div className="login-error-banner" style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "10px 14px",
+              background: "#FEE2E2",
+              border: "1px solid #FCA5A5",
+              color: "#991B1B",
+              borderRadius: "8px",
+              fontSize: "13px",
+              marginBottom: "16px"
+            }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -107,7 +141,10 @@ function TeacherLogin() {
                 type="email"
                 placeholder="teacher@college.edu"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errorMsg) setErrorMsg("");
+                }}
                 autoComplete="email"
                 required
               />
@@ -119,7 +156,7 @@ function TeacherLogin() {
                 <button
                   type="button"
                   className="forgot-password"
-                  onClick={() => alert("Password reset requested for teacher email.")}
+                  onClick={() => alert("Password reset link has been dispatched to teacher email.")}
                 >
                   Forgot Password?
                 </button>
@@ -131,7 +168,10 @@ function TeacherLogin() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errorMsg) setErrorMsg("");
+                  }}
                   autoComplete="current-password"
                   required
                 />
@@ -147,8 +187,15 @@ function TeacherLogin() {
               </div>
             </div>
 
-            <button type="submit" className="login-button">
-              Sign In to Dashboard
+            <button type="submit" className="login-button" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="spin-icon" style={{ marginRight: "8px" }} />
+                  Authenticating...
+                </>
+              ) : (
+                "Sign In to Dashboard"
+              )}
             </button>
           </form>
 
@@ -163,3 +210,4 @@ function TeacherLogin() {
 }
 
 export default TeacherLogin;
+

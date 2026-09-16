@@ -48,6 +48,70 @@
   font-weight: 750;
 }
 
+.analytics-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-md, 8px);
+  background: #fff;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+}
+
+.analytics-filters label {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 140px;
+  color: var(--slate-muted, #64748b);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.analytics-filters select {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--slate-text, #0f172a);
+  background: #fff;
+  font: inherit;
+}
+
+.analytics-metadata-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.analytics-metadata-panel .meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.analytics-metadata-panel .meta-item span {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.analytics-metadata-panel .meta-item strong {
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+
 .reports-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -357,6 +421,136 @@
   }
 }
 
+/* ===== GRADE SHEET (In-Sem / End-Sem Examination) ===== */
+
+.grade-sheet-template .report-card-actions {
+  flex-wrap: wrap;
+}
+
+.grade-sheet-filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+  margin: 0 0 14px;
+}
+
+.grade-sheet-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.grade-sheet-field span {
+  color: var(--slate-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.3px;
+}
+
+.grade-sheet-field select {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--slate-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition-normal);
+}
+
+.grade-sheet-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.grade-sheet-preview-modal {
+  width: min(980px, 100%);
+}
+
+.grade-sheet-table-wrap {
+  overflow-x: auto;
+  margin-top: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+}
+
+.grade-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.grade-sheet-table th,
+.grade-sheet-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.grade-sheet-table th {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.grade-sheet-table td {
+  color: #334155;
+}
+
+.grade-sheet-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.grade-sheet-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.grade-sheet-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.grade-sheet-summary div {
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.grade-sheet-summary small {
+  display: block;
+  color: var(--slate-muted);
+  font-size: 10px;
+}
+
+.grade-sheet-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.grade-sheet-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.grade-sheet-modal-actions .modal-export {
+  float: none;
+  margin-top: 0;
+}
+
 @media(max-width: 1050px) {
   .reports-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -379,6 +573,15 @@
   }
   .modal-export {
     float: none;
+    width: 100%;
+  }
+  .grade-sheet-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grade-sheet-modal-actions {
+    flex-direction: column;
+  }
+  .grade-sheet-modal-actions .modal-export {
     width: 100%;
   }
 }
