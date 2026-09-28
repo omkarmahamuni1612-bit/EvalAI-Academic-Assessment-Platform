@@ -3,175 +3,132 @@ import os
 from pathlib import Path
 from backend.config import STORAGE_FILE, DOWNLOADS_DIR
 
-INITIAL_QUESTION_PAPER = {
-    "id": "insem-qp-001",
-    "filename": "CAA CO1 and CO2 Question Paper1.pdf",
+DEFAULT_EXAM_ID = "insem-001"
+
+DEFAULT_EXAM_METADATA = {
+    "id": DEFAULT_EXAM_ID,
     "title": "CAA (CO1 & CO2) Examination — August 2026",
+    "shortTitle": "In-Sem Exam — IoT",
     "course": "Internet of Things: Concepts and Applications (MDM)",
     "courseCode": "ET24056",
+    "branch": "ENTC / IT",
+    "division": "T.Y.B.Tech. IT Semester-I",
+    "teacher": "Prof. A. Deshmukh",
+    "examDate": "20 Aug 2026, 10:00 AM",
     "totalMarks": 20,
     "duration": "1 Hour",
-    "instructions": [
-        "Verify the question paper received is with correct course name, branch etc.",
-        "All questions are compulsory.",
-        "Neat diagrams must be drawn wherever necessary.",
-        "Assume Suitable data if necessary.",
-        "The figures on right side indicates the marks."
-    ],
+    "description": "In-Semester examination covering physical design, identification schemes, networking, IoT devices/gateways, and IBM IoT architecture. Attempt any two questions per section.",
+    "questionPaperPdf": {"name": "CAA CO1 and CO2 Question Paper1.pdf", "path": str(DOWNLOADS_DIR / "CAA CO1 and CO2 Question Paper1.pdf")},
+    "referenceAnswerPdf": {"name": "IoT_InSem_ReferenceAnswer.pdf", "path": ""},
+    "referenceAnswerText": "Physical design includes IoT devices and protocols. Identification schemes include IPv6 and MAC addressing. Local-area vs wide-area networking differentiates short range (Zigbee/BLE) vs long range (LoRa/Cellular). IBM IoT architecture comprises Device, Gateway, Cloud Platform, and Applications layers.",
     "questions": [
-        {
-            "id": "Q1a",
-            "section": "Q1",
-            "number": "1(a)",
-            "text": "Evaluate the physical design of an IoT system using a suitable example.",
-            "marks": 5,
-            "instruction": "Attempt any two",
-            "requiresDiagram": False,
-            "coMapping": "CO1"
-        },
-        {
-            "id": "Q1b",
-            "section": "Q1",
-            "number": "1(b)",
-            "text": "Explain identification schemes used in IoT.",
-            "marks": 5,
-            "instruction": "Attempt any two",
-            "requiresDiagram": False,
-            "coMapping": "CO1"
-        },
-        {
-            "id": "Q1c",
-            "section": "Q1",
-            "number": "1(c)",
-            "text": "Differentiate between local-area and wide-area networking in IoT.",
-            "marks": 5,
-            "instruction": "Attempt any two",
-            "requiresDiagram": False,
-            "coMapping": "CO1"
-        },
-        {
-            "id": "Q1d",
-            "section": "Q1",
-            "number": "1(d)",
-            "text": "Explain the role of IoT devices and gateways.",
-            "marks": 5,
-            "instruction": "Attempt any two",
-            "requiresDiagram": False,
-            "coMapping": "CO1"
-        },
-        {
-            "id": "Q2a",
-            "section": "Q2",
-            "number": "2(a)",
-            "text": "Evaluate the role of networking devices and topologies in ensuring IoT reliability.",
-            "marks": 5,
-            "instruction": "Attempt any two",
-            "requiresDiagram": False,
-            "coMapping": "CO2"
-        },
-        {
-            "id": "Q2b",
-            "section": "Q2",
-            "number": "2(b)",
-            "text": "Explain IoT architecture given by IBM with a neat diagram.",
-            "marks": 5,
-            "instruction": "Attempt any two",
-            "requiresDiagram": True,
-            "coMapping": "CO2"
-        }
+        {"id": "Q1a", "section": "Q1", "number": "1(a)", "text": "Evaluate the physical design of an IoT system using a suitable example.", "marks": 5, "instruction": "Attempt any two", "requiresDiagram": False, "coMapping": "CO1"},
+        {"id": "Q1b", "section": "Q1", "number": "1(b)", "text": "Explain identification schemes used in IoT.", "marks": 5, "instruction": "Attempt any two", "requiresDiagram": False, "coMapping": "CO1"},
+        {"id": "Q1c", "section": "Q1", "number": "1(c)", "text": "Differentiate between local-area and wide-area networking in IoT.", "marks": 5, "instruction": "Attempt any two", "requiresDiagram": False, "coMapping": "CO1"},
+        {"id": "Q1d", "section": "Q1", "number": "1(d)", "text": "Explain the role of IoT devices and gateways.", "marks": 5, "instruction": "Attempt any two", "requiresDiagram": False, "coMapping": "CO1"},
+        {"id": "Q2a", "section": "Q2", "number": "2(a)", "text": "Evaluate the role of networking devices and topologies in ensuring IoT reliability.", "marks": 5, "instruction": "Attempt any two", "requiresDiagram": False, "coMapping": "CO2"},
+        {"id": "Q2b", "section": "Q2", "number": "2(b)", "text": "Explain IoT architecture given by IBM with a neat diagram.", "marks": 5, "instruction": "Attempt any two", "requiresDiagram": True, "coMapping": "CO2"}
     ]
 }
 
 
-def get_default_student_list():
-    """
-    Returns base directory of up to 20 students.
-    """
-    base_students = [
-        {"id": "stu-rahul", "name": "Rahul Patil", "roll": "ET202-041"},
-        {"id": "stu-sneha", "name": "Sneha Kulkarni", "roll": "ET202-089"},
-        {"id": "stu-aarav", "name": "Aarav Sharma", "roll": "ET202-012"},
-        {"id": "stu-priya", "name": "Priya Deshmukh", "roll": "ET202-056"},
-        {"id": "stu-rohan", "name": "Rohan Jadhav", "roll": "ET202-102"},
-        {"id": "stu-ananya", "name": "Ananya Kulkarni", "roll": "ET202-077"},
-        {"id": "stu-aditya", "name": "Aditya Shinde", "roll": "ET202-034"},
-        {"id": "stu-vikram", "name": "Vikram Joshi", "roll": "ET202-095"},
-        {"id": "stu-9", "name": "Karan Malhotra", "roll": "ET202-093"},
-        {"id": "stu-10", "name": "Neha Singh", "roll": "ET202-105"},
-        {"id": "stu-11", "name": "Siddharth Nair", "roll": "ET202-118"},
-        {"id": "stu-12", "name": "Tanvi Patel", "roll": "ET202-124"},
-        {"id": "stu-13", "name": "Aditya Rao", "roll": "ET202-136"},
-        {"id": "stu-14", "name": "Shruti Kapoor", "roll": "ET202-142"},
-        {"id": "stu-15", "name": "Vivek Verma", "roll": "ET202-150"},
-        {"id": "stu-16", "name": "Pooja Hegde", "roll": "ET202-162"},
-        {"id": "stu-17", "name": "Rishabh Pant", "roll": "ET202-175"},
-        {"id": "stu-18", "name": "Deepika Padukone", "roll": "ET202-184"},
-        {"id": "stu-19", "name": "Hardik Pandya", "roll": "ET202-191"},
-        {"id": "stu-20", "name": "Shubman Gill", "roll": "ET202-200"}
-    ]
-    return base_students
-
-
-class InSemStorage:
+class MultiExamStorage:
     def __init__(self):
-        self.question_paper = INITIAL_QUESTION_PAPER
-        self.submissions = {}
-        self.published = False
-        self.published_at = None
-        self._initialize_from_downloads()
+        self.exams = {DEFAULT_EXAM_ID: dict(DEFAULT_EXAM_METADATA)}
+        self.students = {DEFAULT_EXAM_ID: {}}
+        self.submissions = {}  # Keyed by f"{exam_id}_{student_id}"
+        self.published = {DEFAULT_EXAM_ID: False}
+        self._initialize_default_roster()
+        self.load_from_disk()
 
-    def _initialize_from_downloads(self):
+    def _initialize_default_roster(self):
         """
-        Discovers 14 uploaded PDFs in C:\\Users\\OMKAR\\Downloads\\ and populates submission records.
+        Initializes default enrolled student roster for DEFAULT_EXAM_ID.
         """
-        pdf_mapping = [
-            ("iot1.pdf", "stu-rahul", "Rahul Patil", "ET202-041"),
-            ("iot2.pdf", "stu-sneha", "Sneha Kulkarni", "ET202-089"),
-            ("iot3.pdf", "stu-aarav", "Aarav Sharma", "ET202-012"),
-            ("iot4.pdf", "stu-priya", "Priya Deshmukh", "ET202-056"),
-            ("iot5.pdf", "stu-rohan", "Rohan Jadhav", "ET202-102"),
-            ("iot 6.pdf", "stu-ananya", "Ananya Kulkarni", "ET202-077"),
-            ("iot7.pdf", "stu-aditya", "Aditya Shinde", "ET202-034"),
-            ("iot8.pdf", "stu-vikram", "Vikram Joshi", "ET202-095"),
-            ("iot9.pdf", "stu-9", "Karan Malhotra", "ET202-093"),
-            ("iot10.pdf", "stu-10", "Neha Singh", "ET202-105"),
-            ("iot11.pdf", "stu-11", "Siddharth Nair", "ET202-118"),
-            ("iot12.pdf", "stu-12", "Tanvi Patel", "ET202-124"),
-            ("iot13.pdf", "stu-13", "Aditya Rao", "ET202-136"),
-            ("iot14.pdf", "stu-14", "Shruti Kapoor", "ET202-142")
+        default_students = [
+            {"id": "stu-rahul", "name": "Rahul Patil", "roll": "ET202-041", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-sneha", "name": "Sneha Kulkarni", "roll": "ET202-089", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-aarav", "name": "Aarav Sharma", "roll": "ET202-012", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-priya", "name": "Priya Deshmukh", "roll": "ET202-056", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-rohan", "name": "Rohan Jadhav", "roll": "ET202-102", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-ananya", "name": "Ananya Kulkarni", "roll": "ET202-077", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-aditya", "name": "Aditya Shinde", "roll": "ET202-034", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-vikram", "name": "Vikram Joshi", "roll": "ET202-095", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-9", "name": "Karan Malhotra", "roll": "ET202-093", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-10", "name": "Neha Singh", "roll": "ET202-105", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-11", "name": "Siddharth Nair", "roll": "ET202-118", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-12", "name": "Tanvi Patel", "roll": "ET202-124", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-13", "name": "Aditya Rao", "roll": "ET202-136", "branch": "ENTC", "division": "TE ENTC – A"},
+            {"id": "stu-14", "name": "Shruti Kapoor", "roll": "ET202-142", "branch": "ENTC", "division": "TE ENTC – A"}
         ]
 
-        for fname, student_id, student_name, roll in pdf_mapping:
-            filepath = DOWNLOADS_DIR / fname
-            if filepath.exists():
-                sub_id = f"insem-sub-{student_id}"
-                if sub_id not in self.submissions:
-                    self.submissions[sub_id] = {
-                        "id": sub_id,
-                        "studentId": student_id,
-                        "studentName": student_name,
-                        "rollNumber": roll,
-                        "fileName": fname,
-                        "filePath": str(filepath),
-                        "evaluationId": f"insem-eval-{student_id}",
-                        "status": "Uploaded",
-                        "mappingStatus": "MATCHED",
-                        "extractionStatus": "PENDING",
-                        "evaluationStatus": "PENDING",
-                        "score": "—",
-                        "renderedPages": [],
-                        "extractedData": None,
-                        "mappedAnswers": [],
-                        "rawQuestionScores": {},
-                        "evaluationResults": {},
-                        "activeDifficulty": "moderate",
-                        "evaluation": None,
-                        "teacherApproved": False,
-                        "published": False
-                    }
+        for s in default_students:
+            self.students[DEFAULT_EXAM_ID][s["id"]] = s
 
-    def get_all_submissions(self):
-        return list(self.submissions.values())
+    def load_from_disk(self):
+        if STORAGE_FILE.exists():
+            try:
+                with open(STORAGE_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if "exams" in data and data["exams"]:
+                        self.exams.update(data["exams"])
+                    if "students" in data and data["students"]:
+                        for exam_id, st_map in data["students"].items():
+                            if exam_id not in self.students:
+                                self.students[exam_id] = {}
+                            self.students[exam_id].update(st_map)
+                    if "submissions" in data and data["submissions"]:
+                        self.submissions.update(data["submissions"])
+                    if "published" in data and data["published"]:
+                        self.published.update(data["published"])
+            except Exception as e:
+                print(f"Error loading STORAGE_FILE: {e}")
+
+    def save_to_disk(self):
+        try:
+            STORAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(STORAGE_FILE, "w", encoding="utf-8") as f:
+                json.dump({
+                    "exams": self.exams,
+                    "students": self.students,
+                    "submissions": self.submissions,
+                    "published": self.published
+                }, f, indent=2)
+        except Exception as e:
+            print(f"Error saving to STORAGE_FILE: {e}")
+
+    def get_exam(self, exam_id):
+        return self.exams.get(exam_id)
+
+    def save_exam(self, exam_data):
+        exam_id = exam_data.get("id", DEFAULT_EXAM_ID)
+        self.exams[exam_id] = exam_data
+        self.save_to_disk()
+        return exam_data
+
+    def create_exam(self, exam_data):
+        exam_id = exam_data.get("id") or f"insem-{int(os.urandom(3).hex(), 16)}"
+        exam_data["id"] = exam_id
+        self.exams[exam_id] = exam_data
+        self.students[exam_id] = {}
+        self.published[exam_id] = False
+        self.save_to_disk()
+        return exam_data
+
+    def enroll_student(self, exam_id, student_info):
+        if exam_id not in self.students:
+            self.students[exam_id] = {}
+        student_id = student_info.get("id") or f"stu-{int(os.urandom(3).hex(), 16)}"
+        student_info["id"] = student_id
+        self.students[exam_id][student_id] = student_info
+        self.save_to_disk()
+        return student_info
+
+    def get_enrolled_students(self, exam_id):
+        return list(self.students.get(exam_id, {}).values())
+
+    def get_submissions_for_exam(self, exam_id):
+        return [s for s in self.submissions.values() if s.get("examId") == exam_id]
 
     def get_submission(self, sub_id):
         return self.submissions.get(sub_id)
@@ -179,7 +136,8 @@ class InSemStorage:
     def save_submission(self, sub_dict):
         sub_id = sub_dict["id"]
         self.submissions[sub_id] = sub_dict
+        self.save_to_disk()
         return sub_dict
 
 
-storage = InSemStorage()
+storage = MultiExamStorage()

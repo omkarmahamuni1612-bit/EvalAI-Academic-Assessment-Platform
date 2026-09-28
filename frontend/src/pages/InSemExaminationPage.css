@@ -1166,3 +1166,25 @@
     transform: scale(1) translateY(0);
   }
 }
+
+/* Sub-card container for Section 02 */
+.insem-sub-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.insem-sub-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.insem-sub-card-header h3 {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+}
+

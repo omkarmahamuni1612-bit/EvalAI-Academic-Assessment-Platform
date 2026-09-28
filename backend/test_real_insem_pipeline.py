@@ -34,7 +34,7 @@ def run_pipeline_verification():
     assert len(qp_data['questions']) >= 6, "Expected at least 6 sub-questions"
 
     # 2. Discover 14 Uploaded Student PDFs
-    iot_pdfs = sorted(glob.glob(str(DOWNLOADS_DIR / "iot*.pdf")))
+    iot_pdfs = sorted([f for f in glob.glob(str(DOWNLOADS_DIR / "iot*.pdf")) if "IoT_CAA" not in os.path.basename(f)])
     print(f"\n[OK] Discovered {len(iot_pdfs)} student answer sheet PDFs in Downloads:")
     for f in iot_pdfs:
         print(f"  - {os.path.basename(f)}")

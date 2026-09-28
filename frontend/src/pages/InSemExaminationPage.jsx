@@ -11,13 +11,16 @@ import {
   Gauge,
   Loader2,
   Play,
+  Plus,
   RotateCcw,
   Upload,
+  UserPlus,
   X,
 } from "lucide-react";
-import { students } from "../auth/studentAuth";
 import {
   approveInSemEvaluation,
+  enrollStudentInExam,
+  getInSemEnrolledStudents,
   getInSemEvaluationProgress,
   getInSemExam,
   getInSemSubmissionByEvaluationId,
@@ -27,21 +30,34 @@ import {
   publishInSemResults,
   reEvaluateInSemSubmission,
   saveInSemTeacherReview,
-  startInSemEvaluation,
 } from "../data/inSemData";
-import { processAllSubmissions } from "../api/insemApi";
+import {
+  approveSubmissionApi,
+  enrollStudentApi,
+  evaluateSubmissionApi,
+  extractSubmission,
+  fetchExamDetails,
+  getQuestionPaperPdfUrl,
+  getReferenceAnswerPdfUrl,
+  getStudentAnswerSheetPdfUrl,
+  publishResultsApi,
+  reevaluateSubmissionApi,
+  uploadQuestionPaperApi,
+  uploadReferenceAnswerApi,
+  uploadStudentAnswerSheetApi
+} from "../api/insemApi";
 import { PageHeader, StatusBadge, Toast } from "../components/WorkflowUI";
 import { BulkAnswerSheetUpload, ExaminationProcessingStatus } from "../components/BulkAnswerSheetUpload";
 import "./InSemExaminationPage.css";
 
 function formatFileSize(bytes) {
-  if (!bytes && bytes !== 0) return "";
+  if (!bytes && bytes !== 0) return "PDF document";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-export function PdfUpload({ label, helperText, file, onFileChange, onRemove }) {
+export function PdfUpload({ label, helperText, file, onFileChange, onRemove, onViewOriginal }) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,6 +97,16 @@ export function PdfUpload({ label, helperText, file, onFileChange, onRemove }) {
             <span>{formatFileSize(file.size)} · PDF document</span>
           </div>
           <div className="insem-pdf-file-actions">
+            {onViewOriginal && (
+              <button
+                type="button"
+                className="insem-pdf-replace-btn"
+                onClick={onViewOriginal}
+                style={{ color: "#2563eb", borderColor: "#bfdbfe", background: "#eff6ff" }}
+              >
+                <Eye size={14} /> View Original
+              </button>
+            )}
             <label className="insem-pdf-replace-btn">
               <Upload size={14} /> Replace
               <input type="file" accept="application/pdf,.pdf" onChange={handleInputChange} />
@@ -159,133 +185,188 @@ export const stageText = [
 export function InSemExaminationPage() {
   const navigate = useNavigate();
   const exam = getInSemExam();
+  const [enrolledStudents, setEnrolledStudents] = useState(getInSemEnrolledStudents());
+  const [submissions, setSubmissions] = useState(getInSemSubmissions());
   const [questionPaper, setQuestionPaper] = useState(null);
   const [referenceAnswer, setReferenceAnswer] = useState(null);
-  const [selectedStudentId, setSelectedStudentId] = useState("");
-  const [answerSheet, setAnswerSheet] = useState(null);
-  const [mappedSubmissions, setMappedSubmissions] = useState(getInSemSubmissions());
   const [toast, setToast] = useState("");
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showReevalModal, setShowReevalModal] = useState(null);
   const [viewOriginalModal, setViewOriginalModal] = useState(null);
+  const [viewPdfModal, setViewPdfModal] = useState(null);
   const [published, setPublished] = useState(isInSemResultsPublished());
   const [evaluatingId, setEvaluatingId] = useState(null);
-  const [stage, setStage] = useState(-1);
+  const [extractingId, setExtractingId] = useState(null);
   const [difficulty, setDifficulty] = useState("moderate");
+  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [selectedIndividualFile, setSelectedIndividualFile] = useState(null);
   const [validationMessage, setValidationMessage] = useState("");
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState(0);
+
+  // Form state for enrolling a student
+  const [newStudentName, setNewStudentName] = useState("");
+  const [newStudentRoll, setNewStudentRoll] = useState("");
+  const [newStudentBranch, setNewStudentBranch] = useState("ENTC");
+  const [newStudentDivision, setNewStudentDivision] = useState("TE ENTC – A");
 
   const progress = getInSemEvaluationProgress();
-  const selectedStudent = students.find((s) => s.id === selectedStudentId) || null;
+  const selectedStudent = enrolledStudents.find((s) => s.id === selectedStudentId) || null;
+  const mappedSubmissions = submissions.filter(
+    (sub) => sub && sub.fileName && sub.fileName.trim() !== ""
+  );
 
-  const handleMapAnswerSheet = () => {
+  useEffect(() => {
+    async function syncBackendData() {
+      const details = await fetchExamDetails(exam.id || "insem-001");
+      if (details) {
+        if (details.students && details.students.length > 0) {
+          setEnrolledStudents(details.students);
+        }
+        if (details.submissions) {
+          const mappedOnly = details.submissions.filter(
+            (s) => s && s.fileName && s.fileName.trim() !== ""
+          );
+          setSubmissions(mappedOnly);
+        }
+        if (details.exam) {
+          if (details.exam.questionPaperPdf && details.exam.questionPaperPdf.name) {
+            setQuestionPaper(details.exam.questionPaperPdf);
+          }
+          if (details.exam.referenceAnswerPdf && details.exam.referenceAnswerPdf.name) {
+            setReferenceAnswer(details.exam.referenceAnswerPdf);
+          }
+        }
+      }
+    }
+    syncBackendData();
+  }, [exam.id]);
+
+  const handleEnrollSubmit = async (e) => {
+    e.preventDefault();
+    if (!newStudentName.trim() || !newStudentRoll.trim()) {
+      setToast("Student Name and Roll Number are required.");
+      return;
+    }
+
+    const res = enrollStudentInExam({
+      name: newStudentName,
+      roll: newStudentRoll,
+      branch: newStudentBranch,
+      division: newStudentDivision
+    });
+
+    await enrollStudentApi(exam.id || "insem-001", {
+      name: newStudentName,
+      roll: newStudentRoll,
+      branch: newStudentBranch,
+      division: newStudentDivision
+    });
+
+    setEnrolledStudents([...getInSemEnrolledStudents()]);
+    setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)]);
+    setShowEnrollModal(false);
+    setNewStudentName("");
+    setNewStudentRoll("");
+    setToast(`Enrolled student ${newStudentName} (${newStudentRoll}) successfully.`);
+  };
+
+  const handleMapAnswerSheet = async () => {
     setValidationMessage("");
     if (!selectedStudent) {
       setValidationMessage("Please select a student to map the answer sheet.");
       return;
     }
-    if (!answerSheet) {
+    if (!selectedIndividualFile) {
       setValidationMessage("Please upload the student's answer sheet PDF first.");
       return;
     }
-    const result = mapAnswerSheetToStudent(selectedStudent, answerSheet, { replace: true });
-    if (result.error) {
-      setValidationMessage(result.error);
-      return;
-    }
-    setMappedSubmissions([...getInSemSubmissions()]);
-    setToast(`Answer sheet mapped to ${selectedStudent.name} (${selectedStudent.roll}).`);
-    setAnswerSheet(null);
+    mapAnswerSheetToStudent(selectedStudent, selectedIndividualFile, { replace: true });
+    await uploadStudentAnswerSheetApi(exam.id || "insem-001", selectedStudent.id, selectedIndividualFile);
+    setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)]);
+    setToast(`Uploaded and mapped answer sheet (${selectedIndividualFile.name}) for ${selectedStudent.name}.`);
+    setSelectedIndividualFile(null);
     setSelectedStudentId("");
   };
 
-  const handleStartEvaluation = (submission) => {
-    if (!submission) return;
+  const handleExtractAnswers = async (submission) => {
+    setExtractingId(submission.id);
+    const apiRes = await extractSubmission(submission.id);
+    setExtractingId(null);
+
+    if (apiRes && apiRes.success) {
+      submission.extractedAnswers = apiRes.submission.extractedAnswers;
+      submission.mappedAnswers = apiRes.submission.mappedAnswers;
+      submission.status = "Extracted";
+      setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)]);
+      setToast(`Extracted handwritten text for ${submission.studentName}.`);
+    } else {
+      submission.status = "Extraction Failed";
+      submission.evaluationError = apiRes?.error || "AI extraction/evaluation unavailable. Please retry.";
+      setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)]);
+      setToast("AI extraction/evaluation unavailable. Please retry.");
+    }
+  };
+
+  const handleEvaluate = async (submission) => {
     setEvaluatingId(submission.id);
-    setStage(0);
+    const apiRes = await evaluateSubmissionApi(submission.id, difficulty);
+    setEvaluatingId(null);
 
-    let currentStage = 0;
-    const interval = setInterval(() => {
-      currentStage += 1;
-      setStage(currentStage);
-      if (currentStage >= evaluationStages.length) {
-        clearInterval(interval);
-        const result = startInSemEvaluation(submission.id, difficulty);
-        setMappedSubmissions([...getInSemSubmissions()]);
-        setEvaluatingId(null);
-        setStage(-1);
-        if (result) {
-          setToast(`AI evaluation completed for ${result.studentName}.`);
-        }
-      }
-    }, 500);
+    if (apiRes && apiRes.success) {
+      submission.evaluationResults = apiRes.submission.evaluationResults;
+      submission.evaluation = apiRes.submission.evaluation;
+      submission.score = apiRes.submission.score;
+      submission.status = "Evaluation Completed";
+      setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)]);
+      setToast(`Evaluated ${submission.studentName} under ${difficulty.toUpperCase()} standard.`);
+    } else {
+      submission.status = "Evaluation Failed";
+      submission.evaluationError = apiRes?.error || "AI extraction/evaluation unavailable. Please retry.";
+      setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)]);
+      setToast("AI extraction/evaluation unavailable. Please retry.");
+    }
   };
 
-  const confirmReEvaluate = (submission) => {
-    setShowReevalModal(submission);
-  };
-
-  const executeReEvaluate = () => {
+  const executeReEvaluate = async () => {
     const submission = showReevalModal;
     setShowReevalModal(null);
     if (!submission) return;
 
     setEvaluatingId(submission.id);
-    setStage(0);
+    const apiRes = await reevaluateSubmissionApi(submission.id, difficulty);
+    setEvaluatingId(null);
 
-    let currentStage = 0;
-    const interval = setInterval(() => {
-      currentStage += 1;
-      setStage(currentStage);
-      if (currentStage >= evaluationStages.length) {
-        clearInterval(interval);
-        const result = reEvaluateInSemSubmission(submission.id, difficulty);
-        setMappedSubmissions([...getInSemSubmissions()]);
-        setEvaluatingId(null);
-        setStage(-1);
-        if (result) {
-          setToast(`Re-evaluation completed for ${result.studentName} under ${difficulty.toUpperCase()} mode.`);
-        }
-      }
-    }, 500);
+    if (apiRes && apiRes.success) {
+      submission.evaluationResults = apiRes.submission.evaluationResults;
+      submission.evaluation = apiRes.submission.evaluation;
+      submission.score = apiRes.submission.score;
+      setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)]);
+      setToast(`Re-evaluated ${submission.studentName} under ${difficulty.toUpperCase()} standard.`);
+    } else {
+      setToast("AI extraction/evaluation unavailable. Please retry.");
+    }
   };
 
-  const handleProcessAll = async () => {
-    setIsBulkProcessing(true);
-    setBulkProgress(0);
-    const total = mappedSubmissions.length;
-
-    try {
-      await processAllSubmissions(difficulty);
-    } catch (e) {
-      console.log("Processing batch locally...");
-    }
-
-    for (let i = 0; i < total; i++) {
-      setBulkProgress(i + 1);
-      const sub = mappedSubmissions[i];
-      startInSemEvaluation(sub.id, difficulty);
-      await new Promise((res) => setTimeout(res, 300));
-    }
-
-    setMappedSubmissions([...getInSemSubmissions()]);
-    setIsBulkProcessing(false);
-    setToast(`Successfully processed and evaluated all ${total} student answer sheets.`);
-  };
-
-  const handlePublish = () => {
+  const handlePublish = async () => {
     const result = publishInSemResults();
+    await publishResultsApi(exam.id || "insem-001");
+
     if (result.alreadyPublished) {
-      setToast("Results already published. Students have already been notified.");
+      setToast("Results already published to students.");
     } else if (result.incomplete) {
       setToast("Complete all student evaluations before publishing results.");
     } else {
       setPublished(true);
-      setMappedSubmissions([...getInSemSubmissions()]);
-      setToast("In-Sem results published successfully. Students have been notified.");
+      setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)]);
+      setToast("In-Sem examination results published successfully.");
     }
     setShowPublishModal(false);
+  };
+
+  const getStatusBadge = (status) => {
+    if (status === "Evaluation Completed") return <StatusBadge status="Evaluated" />;
+    if (status === "Result Published") return <StatusBadge status="Evaluated" />;
+    return <StatusBadge status={status} />;
   };
 
   return (
@@ -294,11 +375,20 @@ export function InSemExaminationPage() {
       <PageHeader
         eyebrow="IN-SEM EXAMINATION"
         title="In-Sem Examination Workflow"
-        subtitle={`${exam.title} · Course Code: ${exam.courseCode} · Total Marks: ${exam.totalMarks}`}
+        subtitle={`${exam.title} · ${exam.course} (${exam.courseCode}) · Total Marks: ${exam.totalMarks}`}
         actions={
-          <Link className="workflow-btn" to="/teacher/dashboard">
-            <ArrowLeft size={15} /> Back to Dashboard
-          </Link>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              type="button"
+              className="workflow-btn primary"
+              onClick={() => setShowEnrollModal(true)}
+            >
+              <UserPlus size={15} /> Enroll Student
+            </button>
+            <Link className="workflow-btn" to="/teacher/dashboard">
+              <ArrowLeft size={15} /> Back to Dashboard
+            </Link>
+          </div>
         }
       />
 
@@ -308,7 +398,7 @@ export function InSemExaminationPage() {
           <div className="insem-publish-icon"><CheckCircle2 size={20} /></div>
           <div>
             <h2>{published ? "Results Published" : "Evaluation Progress"}</h2>
-            <p>{published ? "Results have been published to the Student Portal." : progress.allEvaluated ? "All answer sheets evaluated & ready for teacher approval" : `${progress.evaluated} of ${progress.total} answer sheets evaluated`}</p>
+            <p>{published ? "Results have been published and students have been notified." : progress.allEvaluated ? "All answer sheets evaluated" : `${progress.evaluated} of ${progress.total} answer sheets evaluated`}</p>
           </div>
         </div>
         <div className="insem-publish-progress">
@@ -329,73 +419,142 @@ export function InSemExaminationPage() {
             </button>
           )}
         </div>
+        {!progress.allEvaluated && !published && <div className="insem-publish-hint">Complete all student evaluations before publishing results.</div>}
       </section>
 
-      <ExaminationProcessingStatus students={students} submissions={mappedSubmissions} published={published} evaluationProgress={progress} />
+      <ExaminationProcessingStatus students={enrolledStudents} submissions={mappedSubmissions} published={published} evaluationProgress={progress} />
 
-      {/* Step 1: Upload Question Paper */}
+      {/* Step 1: Upload Question Paper & Reference Answer */}
       <section className="insem-surface insem-section">
         <div className="insem-section-heading">
-          <div><span>01</span><h2>Examination Papers & Question Structure</h2></div>
-          <p>Uploaded Question Paper: <strong>CAA CO1 and CO2 Question Paper1.pdf</strong> (Parsed dynamically)</p>
+          <div><span>01</span><h2>Upload Examination Papers</h2></div>
+          <p>Upload the question paper and reference answer PDFs for this examination.</p>
         </div>
         <div className="insem-upload-grid">
           <PdfUpload
             label="Question Paper PDF"
-            helperText="Uploaded: CAA CO1 and CO2 Question Paper1.pdf"
+            helperText="Upload the examination question paper PDF"
             file={questionPaper || exam.questionPaperPdf}
-            onFileChange={setQuestionPaper}
+            onFileChange={async (f) => {
+              setQuestionPaper(f);
+              const res = await uploadQuestionPaperApi(exam.id || "insem-001", f);
+              if (res && res.exam && res.exam.questionPaperPdf) {
+                setQuestionPaper(res.exam.questionPaperPdf);
+                setToast("Question Paper PDF uploaded & extracted successfully.");
+              }
+            }}
             onRemove={() => setQuestionPaper(null)}
+            onViewOriginal={() => {
+              setViewPdfModal({
+                title: "Question Paper PDF",
+                fileName: (questionPaper || exam.questionPaperPdf)?.name || "Question Paper.pdf",
+                url: getQuestionPaperPdfUrl(exam.id || "insem-001")
+              });
+            }}
           />
           <PdfUpload
             label="Reference Answer PDF"
-            helperText="Uploaded model answer reference PDF"
+            helperText="Upload the model/reference answer PDF"
             file={referenceAnswer || exam.referenceAnswerPdf}
-            onFileChange={setReferenceAnswer}
+            onFileChange={async (f) => {
+              setReferenceAnswer(f);
+              const res = await uploadReferenceAnswerApi(exam.id || "insem-001", f, null);
+              if (res && res.exam && res.exam.referenceAnswerPdf) {
+                setReferenceAnswer(res.exam.referenceAnswerPdf);
+                setToast("Reference Answer PDF uploaded & extracted successfully.");
+              }
+            }}
             onRemove={() => setReferenceAnswer(null)}
+            onViewOriginal={() => {
+              setViewPdfModal({
+                title: "Reference Answer PDF",
+                fileName: (referenceAnswer || exam.referenceAnswerPdf)?.name || "Reference Answer.pdf",
+                url: getReferenceAnswerPdfUrl(exam.id || "insem-001")
+              });
+            }}
           />
         </div>
       </section>
 
-      {/* Step 2: Bulk Answer Sheets */}
+      {/* Step 2: Upload & Map Student Answer Sheet */}
       <section className="insem-surface insem-section">
         <div className="insem-section-heading">
-          <div><span>02</span><h2>Uploaded Student Answer Sheets (14 PDFs Detected)</h2></div>
-          <p>EvalAI has automatically loaded the 14 actual student answer PDFs uploaded to the repository (`iot1.pdf` – `iot14.pdf`).</p>
+          <div><span>02</span><h2>Upload & Map Student Answer Sheet</h2></div>
+          <p>Select a student, upload their answer sheet PDF, and map it to them.</p>
         </div>
 
         <BulkAnswerSheetUpload
-          students={students}
+          students={enrolledStudents}
           submissions={mappedSubmissions}
-          mapAnswerSheet={mapAnswerSheetToStudent}
-          onMapped={() => setMappedSubmissions([...getInSemSubmissions()])}
+          mapAnswerSheet={(student, file, options) => {
+            const res = mapAnswerSheetToStudent(student, file, options);
+            if (student && file) {
+              uploadStudentAnswerSheetApi(exam.id || "insem-001", student.id, file);
+            }
+            return res;
+          }}
+          onMapped={() => setSubmissions([...getInSemSubmissions().filter((s) => s && s.fileName)])}
         />
-      </section>
 
-      {/* Step 3: AI Evaluation & Batch Execution */}
-      <section className="insem-surface insem-section">
-        <div className="insem-section-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <span>03</span><h2>AI Evaluation & Teacher Control</h2>
-            <p>Select evaluation difficulty mode and process all 14 student answer sheets.</p>
+        <div className="bulk-individual-divider"><span>Individual Answer Sheet Upload</span></div>
+
+        <div className="insem-map-grid">
+          <div className="insem-map-fields">
+            <label className="insem-field">
+              <span>Student</span>
+              <select
+                value={selectedStudentId}
+                onChange={(event) => setSelectedStudentId(event.target.value)}
+              >
+                <option value="">Select Student</option>
+                {enrolledStudents.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} · {student.roll}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="insem-field">
+              <span>Roll Number</span>
+              <input
+                type="text"
+                value={selectedStudent ? selectedStudent.roll : ""}
+                placeholder="Automatically populated"
+                readOnly
+              />
+            </label>
           </div>
+
+          <div className="insem-map-upload">
+            <PdfUpload
+              label="Student Answer Sheet"
+              helperText="Upload the student's answer sheet PDF"
+              file={selectedIndividualFile}
+              onFileChange={setSelectedIndividualFile}
+              onRemove={() => setSelectedIndividualFile(null)}
+            />
+          </div>
+        </div>
+
+        {validationMessage && <div className="insem-validation" role="alert"><FileWarning size={15} />{validationMessage}</div>}
+
+        <div className="insem-map-actions">
           <button
             type="button"
             className="workflow-btn primary"
-            disabled={isBulkProcessing || mappedSubmissions.length === 0}
-            onClick={handleProcessAll}
-            style={{ padding: "10px 20px", fontSize: "14px", fontWeight: "600" }}
+            onClick={handleMapAnswerSheet}
+            disabled={!selectedStudent || !selectedIndividualFile}
           >
-            {isBulkProcessing ? (
-              <>
-                <Loader2 size={16} className="spin" /> Processing {bulkProgress} / {mappedSubmissions.length}
-              </>
-            ) : (
-              <>
-                <Play size={15} /> Process All 14 Answer Sheets
-              </>
-            )}
+            <Upload size={15} /> Map Answer Sheet to Student
           </button>
+        </div>
+      </section>
+
+      {/* Step 3: Mapped Answer Sheets & AI Evaluation */}
+      <section className="insem-surface insem-section">
+        <div className="insem-section-heading">
+          <div><span>03</span><h2>Mapped Answer Sheets & AI Evaluation</h2></div>
+          <p>Review mapped answer sheets and start AI evaluation for each student.</p>
         </div>
 
         <div className="insem-difficulty-panel">
@@ -403,105 +562,234 @@ export function InSemExaminationPage() {
             <div className="insem-difficulty-icon"><Gauge size={19} /></div>
             <div>
               <h3>Select Evaluation Difficulty</h3>
-              <p>Independent rubric evaluation standard. Does not corrupt raw score baseline.</p>
+              <p>Choose how strictly the AI should evaluate the answer sheets.</p>
             </div>
           </div>
           <DifficultySelector value={difficulty} onChange={setDifficulty} />
         </div>
 
-        <div className="insem-table-wrap">
-          <table className="insem-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Roll Number</th>
-                <th>Answer Sheet PDF</th>
-                <th>Status</th>
-                <th>Score</th>
-                <th>Original View</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mappedSubmissions.map((submission) => (
-                <tr key={submission.id}>
-                  <td><strong>{submission.studentName}</strong></td>
-                  <td className="insem-muted">{submission.rollNumber}</td>
-                  <td>
-                    <span className="insem-file-pill">
-                      <FileText size={14} />
-                      <span>{submission.fileName}</span>
-                    </span>
-                  </td>
-                  <td>
-                    {submission.status === "Evaluation Completed" ? (
-                      <span className="status-badge status-evaluated">AI Evaluated</span>
-                    ) : submission.status === "Teacher Approved" ? (
-                      <span className="status-badge status-approved">Approved</span>
-                    ) : submission.status === "Result Published" ? (
-                      <span className="status-badge status-published">Published</span>
-                    ) : (
-                      <StatusBadge status={submission.status} />
-                    )}
-                  </td>
-                  <td className="insem-score-cell"><strong>{submission.score}</strong></td>
-                  <td>
-                    <button
-                      type="button"
-                      className="insem-text-action"
-                      style={{ color: "#2563eb", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                      onClick={() => setViewOriginalModal(submission)}
-                    >
-                      <Eye size={14} /> View Original Answer
-                    </button>
-                  </td>
-                  <td>
-                    <div className="insem-action-group">
-                      {evaluatingId === submission.id ? (
-                        <span className="insem-evaluating">
-                          <Loader2 size={14} className="spin" />
-                          {stage >= 0 ? stageText[Math.min(stage, stageText.length - 1)] : "Evaluating..."}
-                        </span>
-                      ) : submission.evaluation ? (
-                        <>
-                          <button
-                            type="button"
-                            className="insem-text-action"
-                            onClick={() => navigate(`/teacher/insem/evaluations/${submission.evaluationId}`)}
-                          >
-                            Inspect & Review <ChevronRight size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="insem-text-action insem-re-evaluate"
-                            onClick={() => confirmReEvaluate(submission)}
-                            title="Recalculate AI evaluation for selected difficulty mode"
-                          >
-                            <RotateCcw size={13} /> Re-evaluate
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          className="insem-text-action"
-                          onClick={() => handleStartEvaluation(submission)}
-                        >
-                          <Play size={13} /> Start AI Evaluation <ChevronRight size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+        {mappedSubmissions.length === 0 ? (
+          <div className="insem-empty-state">
+            <FileText size={24} />
+            <h3>No answer sheets mapped yet</h3>
+            <p>Upload and map student answer sheets to begin AI evaluation.</p>
+          </div>
+        ) : (
+          <div className="insem-table-wrap">
+            <table className="insem-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Roll Number</th>
+                  <th>Answer Sheet</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {mappedSubmissions.map((submission) => {
+                  const isExtracting = extractingId === submission.id;
+                  const isEvaluating = evaluatingId === submission.id;
+                  const isExtracted = submission.mappedAnswers && submission.mappedAnswers.length > 0;
+                  const isEvaluated = Boolean(submission.evaluation);
+
+                  return (
+                    <tr key={submission.id}>
+                      <td><strong>{submission.studentName}</strong></td>
+                      <td className="insem-muted">{submission.rollNumber}</td>
+                      <td>
+                        <span className="insem-file-pill">
+                          <FileText size={14} />
+                          <span>{submission.fileName}</span>
+                        </span>
+                      </td>
+                      <td>
+                        {submission.status === "Extraction Failed" || submission.status === "Evaluation Failed" ? (
+                          <span className="status-badge status-missing" title={submission.evaluationError}>
+                            Failed
+                          </span>
+                        ) : (
+                          getStatusBadge(submission.status)
+                        )}
+                      </td>
+                      <td className="insem-score-cell">{submission.score || "—"}</td>
+                      <td>
+                        <div className="insem-action-group">
+                          {isExtracting ? (
+                            <span className="insem-evaluating">
+                              <Loader2 size={14} className="spin" /> Extracting PyMuPDF…
+                            </span>
+                          ) : isEvaluating ? (
+                            <span className="insem-evaluating">
+                              <Loader2 size={14} className="spin" /> Gemini Evaluating…
+                            </span>
+                          ) : isEvaluated ? (
+                            <>
+                              <button
+                                type="button"
+                                className="insem-text-action"
+                                onClick={() => setViewOriginalModal(submission)}
+                              >
+                                <Eye size={14} /> View Original
+                              </button>
+                              <button
+                                type="button"
+                                className="insem-text-action"
+                                onClick={() => navigate(`/teacher/insem/evaluations/${submission.evaluationId}`)}
+                              >
+                                View Result <ChevronRight size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="insem-text-action insem-re-evaluate"
+                                onClick={() => setShowReevalModal(submission)}
+                              >
+                                Re-evaluate <ChevronRight size={14} />
+                              </button>
+                            </>
+                          ) : isExtracted ? (
+                            <>
+                              <button
+                                type="button"
+                                className="insem-text-action"
+                                onClick={() => setViewOriginalModal(submission)}
+                              >
+                                <Eye size={14} /> View Original
+                              </button>
+                              <button
+                                type="button"
+                                className="insem-text-action"
+                                onClick={() => handleEvaluate(submission)}
+                              >
+                                <Play size={13} /> Start AI Evaluation <ChevronRight size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="insem-text-action"
+                                onClick={() => setViewOriginalModal(submission)}
+                              >
+                                <Eye size={14} /> View Original
+                              </button>
+                              <button
+                                type="button"
+                                className="insem-text-action"
+                                onClick={() => handleExtractAnswers(submission)}
+                              >
+                                <Play size={13} /> Extract Answers <ChevronRight size={14} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
+
+      {/* Exam PDF View Original Modal */}
+      {viewPdfModal && (
+        <div className="insem-modal-backdrop" onMouseDown={() => setViewPdfModal(null)}>
+          <section className="insem-modal" style={{ maxWidth: "850px", width: "95%" }} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+              <h2>{viewPdfModal.title} — {viewPdfModal.fileName}</h2>
+              <button type="button" className="insem-pdf-remove-btn" onClick={() => setViewPdfModal(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ background: "#f1f5f9", borderRadius: "8px", height: "550px", overflow: "hidden" }}>
+              <iframe
+                src={viewPdfModal.url}
+                title={viewPdfModal.title}
+                style={{ width: "100%", height: "100%", border: "0" }}
+              />
+            </div>
+            <div className="insem-modal-actions" style={{ marginTop: "15px" }}>
+              <a
+                href={viewPdfModal.url}
+                target="_blank"
+                rel="noreferrer"
+                className="workflow-btn"
+                style={{ textDecoration: "none" }}
+              >
+                Open in New Tab
+              </a>
+              <button type="button" className="workflow-btn primary" onClick={() => setViewPdfModal(null)}>Close Viewer</button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Manual Student Enrollment Modal */}
+      {showEnrollModal && (
+        <div className="insem-modal-backdrop" onMouseDown={() => setShowEnrollModal(false)}>
+          <section className="insem-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="insem-modal-icon"><UserPlus size={24} /></div>
+            <h2>Enroll Student Manually</h2>
+            <p style={{ fontSize: "13px", color: "#64748b" }}>Add a student to the roster for In-Sem Exam ID `{exam.id}`.</p>
+
+            <form onSubmit={handleEnrollSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "15px" }}>
+              <label className="insem-field">
+                <span>Student Name *</span>
+                <input
+                  type="text"
+                  placeholder="e.g. Rahul Patil"
+                  value={newStudentName}
+                  onChange={(e) => setNewStudentName(e.target.value)}
+                  required
+                />
+              </label>
+
+              <label className="insem-field">
+                <span>Roll Number *</span>
+                <input
+                  type="text"
+                  placeholder="e.g. ET202-041"
+                  value={newStudentRoll}
+                  onChange={(e) => setNewStudentRoll(e.target.value)}
+                  required
+                />
+              </label>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <label className="insem-field">
+                  <span>Branch</span>
+                  <input
+                    type="text"
+                    value={newStudentBranch}
+                    onChange={(e) => setNewStudentBranch(e.target.value)}
+                  />
+                </label>
+                <label className="insem-field">
+                  <span>Division</span>
+                  <input
+                    type="text"
+                    value={newStudentDivision}
+                    onChange={(e) => setNewStudentDivision(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="insem-modal-actions" style={{ marginTop: "15px" }}>
+                <button type="button" className="workflow-btn" onClick={() => setShowEnrollModal(false)}>Cancel</button>
+                <button type="submit" className="workflow-btn primary"><Plus size={15} /> Enroll Student</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
       {/* View Original Answer Modal */}
       {viewOriginalModal && (
         <div className="insem-modal-backdrop" onMouseDown={() => setViewOriginalModal(null)}>
-          <section className="insem-modal" style={{ maxWidth: "750px" }} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+          <section className="insem-modal" style={{ maxWidth: "850px", width: "95%" }} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
               <h2>Original Answer Sheet — {viewOriginalModal.studentName} ({viewOriginalModal.rollNumber})</h2>
               <button type="button" className="insem-pdf-remove-btn" onClick={() => setViewOriginalModal(null)}>
@@ -509,20 +797,25 @@ export function InSemExaminationPage() {
               </button>
             </div>
             <p style={{ color: "#64748b", fontSize: "14px", marginBottom: "15px" }}>
-              File: <strong>{viewOriginalModal.fileName}</strong> · Rendered Page 1 Image (150 DPI PyMuPDF Extraction)
+              Submission ID: <strong>{viewOriginalModal.submissionId || viewOriginalModal.id}</strong> · File: <strong>{viewOriginalModal.fileName}</strong>
             </p>
-            <div style={{ background: "#f1f5f9", padding: "10px", borderRadius: "8px", textAlign: "center", maxHeight: "500px", overflowY: "auto" }}>
-              <img
-                src={`http://localhost:8000/api/insem/submissions/${viewOriginalModal.id}/page/1`}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='%23f8fafc'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-family='sans-serif' font-size='14'>Handwritten Answer Page 1 Image Rendered via PyMuPDF</text></svg>";
-                }}
-                alt={`Handwritten answer page of ${viewOriginalModal.studentName}`}
-                style={{ maxWidth: "100%", borderRadius: "4px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+            <div style={{ background: "#f1f5f9", borderRadius: "8px", height: "550px", overflow: "hidden" }}>
+              <iframe
+                src={getStudentAnswerSheetPdfUrl(viewOriginalModal.id || viewOriginalModal.submissionId)}
+                title={`Answer sheet of ${viewOriginalModal.studentName}`}
+                style={{ width: "100%", height: "100%", border: "0" }}
               />
             </div>
             <div className="insem-modal-actions" style={{ marginTop: "15px" }}>
+              <a
+                href={getStudentAnswerSheetPdfUrl(viewOriginalModal.id || viewOriginalModal.submissionId)}
+                target="_blank"
+                rel="noreferrer"
+                className="workflow-btn"
+                style={{ textDecoration: "none" }}
+              >
+                Open in New Tab
+              </a>
               <button type="button" className="workflow-btn primary" onClick={() => setViewOriginalModal(null)}>Close Viewer</button>
             </div>
           </section>
@@ -539,7 +832,7 @@ export function InSemExaminationPage() {
               AI evaluation for <strong>{showReevalModal.studentName}</strong> under the <strong>{difficulty.toUpperCase()}</strong> difficulty standard will be recalculated.
             </p>
             <p style={{ color: "#64748b", fontSize: "13px", marginTop: "8px" }}>
-              The current result for this difficulty will be replaced, while other difficulty results remain unchanged. Raw score baseline is preserved.
+              The current result for this difficulty will be replaced, while other difficulty results remain unchanged. Other students' evaluations remain untouched.
             </p>
             <div className="insem-modal-actions" style={{ marginTop: "20px" }}>
               <button type="button" className="workflow-btn" onClick={() => setShowReevalModal(null)}>Cancel</button>
@@ -555,7 +848,7 @@ export function InSemExaminationPage() {
           <section className="insem-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
             <div className="insem-modal-icon"><CheckCircle2 size={26} /></div>
             <h2>Publish In-Sem Results?</h2>
-            <p>All 14 student answer sheets have been evaluated. Publishing will make the results available on the Student Portal.</p>
+            <p>All student answer sheets have been evaluated. Publishing will make the results available on the Student Portal.</p>
             <div className="insem-modal-actions">
               <button type="button" className="workflow-btn" onClick={() => setShowPublishModal(false)}>Cancel</button>
               <button type="button" className="workflow-btn primary" onClick={handlePublish}><Check size={15} /> Publish & Notify Students</button>
@@ -574,7 +867,6 @@ export function InSemEvaluationResultPage() {
   const exam = getInSemExam();
   const [activeTab, setActiveTab] = useState("moderate");
   const [viewOriginalModal, setViewOriginalModal] = useState(false);
-  const [editedMarks, setEditedMarks] = useState({});
   const [toast, setToast] = useState("");
   const [approved, setApproved] = useState(submission?.teacherApproved || false);
 
@@ -593,6 +885,7 @@ export function InSemEvaluationResultPage() {
         />
         <section className="insem-surface" style={{ padding: "40px", textAlign: "center" }}>
           <h2>Evaluation Not Found</h2>
+          <p style={{ color: "#64748b", margin: "10px 0 20px" }}>Evaluation ID: {evaluationId}</p>
           <Link className="workflow-btn primary" to="/teacher/insem">Return to In-Sem Examination</Link>
         </section>
       </div>
@@ -602,8 +895,9 @@ export function InSemEvaluationResultPage() {
   const evalData = submission.evaluationResults?.[activeTab] || submission.evaluation;
   const percentage = Math.round((evalData.obtainedMarks / 20) * 100);
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     approveInSemEvaluation(submission.id);
+    await approveSubmissionApi(submission.id);
     setApproved(true);
     setToast(`Evaluation for ${submission.studentName} approved.`);
   };
@@ -674,7 +968,7 @@ export function InSemEvaluationResultPage() {
           </div>
           <div className="insem-ocr-inline">
             <strong>Gemini Vision Extracted Content</strong>
-            <p>{evalData.answerText}</p>
+            <p>{evalData.answerText || "No extracted text available."}</p>
           </div>
         </section>
 
@@ -718,25 +1012,33 @@ export function InSemEvaluationResultPage() {
       {/* View Original Answer Modal */}
       {viewOriginalModal && (
         <div className="insem-modal-backdrop" onMouseDown={() => setViewOriginalModal(false)}>
-          <section className="insem-modal" style={{ maxWidth: "750px" }} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+          <section className="insem-modal" style={{ maxWidth: "850px", width: "95%" }} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-              <h2>Original Answer Sheet Page — {submission.studentName}</h2>
+              <h2>Original Answer Sheet — {submission.studentName} ({submission.rollNumber})</h2>
               <button type="button" className="insem-pdf-remove-btn" onClick={() => setViewOriginalModal(false)}>
                 <X size={18} />
               </button>
             </div>
-            <div style={{ background: "#f1f5f9", padding: "10px", borderRadius: "8px", textAlign: "center", maxHeight: "500px", overflowY: "auto" }}>
-              <img
-                src={`http://localhost:8000/api/insem/submissions/${submission.id}/page/1`}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='100%' height='100%' fill='%23f8fafc'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-family='sans-serif' font-size='14'>Handwritten Answer Page 1 Image Rendered via PyMuPDF</text></svg>";
-                }}
-                alt={`Handwritten answer page of ${submission.studentName}`}
-                style={{ maxWidth: "100%", borderRadius: "4px" }}
+            <p style={{ color: "#64748b", fontSize: "14px", marginBottom: "15px" }}>
+              Submission ID: <strong>{submission.submissionId || submission.id}</strong> · File: <strong>{submission.fileName}</strong>
+            </p>
+            <div style={{ background: "#f1f5f9", borderRadius: "8px", height: "550px", overflow: "hidden" }}>
+              <iframe
+                src={getStudentAnswerSheetPdfUrl(submission.id || submission.submissionId)}
+                title={`Answer sheet of ${submission.studentName}`}
+                style={{ width: "100%", height: "100%", border: "0" }}
               />
             </div>
             <div className="insem-modal-actions" style={{ marginTop: "15px" }}>
+              <a
+                href={getStudentAnswerSheetPdfUrl(submission.id || submission.submissionId)}
+                target="_blank"
+                rel="noreferrer"
+                className="workflow-btn"
+                style={{ textDecoration: "none" }}
+              >
+                Open in New Tab
+              </a>
               <button type="button" className="workflow-btn primary" onClick={() => setViewOriginalModal(false)}>Close Viewer</button>
             </div>
           </section>
